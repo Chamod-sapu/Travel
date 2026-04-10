@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #000000;
+  --color-secondary: #00668a;
+  --color-secondary-container: #40c2fd;
+  --color-surface: #f7f9fb;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #45464d;
+  --color-primary-container: #131b2e;
+  
+  --font-headline: "Plus Jakarta Sans", sans-serif;
+  --font-body: "Manrope", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-body bg-surface text-on-surface antialiased;
+  }
+}
+
+@layer components {
+  .signature-gradient {
+    background: linear-gradient(135deg, #00668a 0%, #40c2fd 100%);
+  }
+  
+  .glass-nav {
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg;
+  }
+  
+  .editorial-shadow {
+    box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.08);
+  }
+}

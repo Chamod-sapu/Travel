@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: travelnest-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      # We define multiple databases via initialization script if needed,
+      # but spring-boot createDatabaseIfNotExist=true handles our schema creation.
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - travelnest-net
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: travelnest-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - travelnest-net
+
+  service-registry:
+    build: ./service-registry
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - travelnest-net
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    depends_on:
+      - service-registry
+    networks:
+      - travelnest-net
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/travelnest_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    depends_on:
+      - mysql
+      - service-registry
+    networks:
+      - travelnest-net
+
+  flight-service:
+    build: ./flight-service
+    container_name: flight-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/travelnest_flights?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    depends_on:
+      - mysql
+      - service-registry
+    networks:
+      - travelnest-net
+
+  hotel-service:
+    build: ./hotel-service
+    container_name: hotel-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/travelnest_hotels?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    depends_on:
+      - mysql
+      - service-registry
+    networks:
+      - travelnest-net
+
+  package-service:
+    build: ./package-service
+    container_name: package-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/travelnest_packages?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+    depends_on:
+      - mysql
+      - service-registry
+    networks:
+      - travelnest-net
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/travelnest_payments?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+      - SPRING_RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - mysql
+      - rabbitmq
+      - service-registry
+    networks:
+      - travelnest-net
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+      - SPRING_RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - rabbitmq
+      - service-registry
+    networks:
+      - travelnest-net
+
+volumes:
+  mysql-data:
+
+networks:
+  travelnest-net:
+    driver: bridge
