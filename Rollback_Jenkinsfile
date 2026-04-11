@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'BUILD_NUMBER_TO_RESTORE', defaultValue: '', description: 'Build NUMBER to restore')
+    }
+    environment {
+        SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
+        K8S_NAMESPACE = "travelnest"
+        OCI_REGISTRY = credentials('OCI_REGISTRY')
+        OCI_NAMESPACE = credentials('OCI_NAMESPACE')
+    }
+    stages {
+        stage('Rollback Images') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG')]) {
+                        def svcs = env.SERVICES.split(' ')
+                        for(int i=0; i<svcs.size(); i++){
+                            def svc = svcs[i]
+                            sh "kubectl set image deployment/${svc} ${svc}=${OCI_REGISTRY}/${OCI_NAMESPACE}/${svc}:${params.BUILD_NUMBER_TO_RESTORE} -n ${K8S_NAMESPACE}"
+                            sh "kubectl rollout status deployment/${svc} -n ${K8S_NAMESPACE} --timeout=300s"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Health Check') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG')]) {
+                        def gwIp = sh(script: "kubectl get svc api-gateway -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'", returnStdout: true).trim()
+                        def svcs = env.SERVICES.split(' ')
+                        for(int i=0; i<svcs.size(); i++){
+                            def svc = svcs[i]
+                            retry(5) {
+                                sleep 30
+                                sh "curl -f http://${gwIp}/api/${svc}/actuator/health || exit 1"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Notify') {
+            steps {
+                echo "Rollback to ${params.BUILD_NUMBER_TO_RESTORE} completed."
+            }
+        }
+    }
+}

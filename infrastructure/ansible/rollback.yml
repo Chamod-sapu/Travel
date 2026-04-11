@@ -1,0 +1,7 @@
+---
+- hosts: jenkins
+  tags: [deploy]
+  tasks:
+    - name: Rollout Undo
+      command: kubectl rollout undo deployment/{{ item }} -n {{ k8s_namespace }}
+      loop: [api-gateway, user-service]

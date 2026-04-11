@@ -2,6 +2,7 @@ package com.travelnest.flightservice.service;
 
 import com.travelnest.flightservice.dto.BookFlightRequest;
 import com.travelnest.flightservice.dto.BookingResponse;
+import com.travelnest.flightservice.dto.FlightRequest;
 import com.travelnest.flightservice.dto.FlightResponse;
 
 import java.time.LocalDateTime;

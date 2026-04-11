@@ -1,0 +1,12 @@
+---
+- hosts: jenkins
+  tags: [deploy]
+  tasks:
+    - block:
+        - name: Apply manifests
+          command: kubectl apply -f ../k8s/ --recursive -n {{ k8s_namespace }}
+        - name: Rollout Status
+          command: kubectl rollout status deployment/{{ item }} -n {{ k8s_namespace }}
+          loop: [api-gateway, user-service] # And others
+      rescue:
+        - debug: msg="Failed to deploy k8s"

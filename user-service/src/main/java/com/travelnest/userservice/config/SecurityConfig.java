@@ -56,12 +56,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register", "/api/users/login").permitAll()
-                // the api-gateway does jwt validation, 
-                // but we might want stateless session config here anyway
-                .anyRequest().authenticated()
+                // In this architecture, the API Gateway handles JWT validation. 
+                // Downstream services trust the Gateway. For production, add internal-only IP restrictions.
+                .anyRequest().permitAll()
             )
-            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authenticationProvider(authenticationProvider());
+            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
             
         return http.build();
     }

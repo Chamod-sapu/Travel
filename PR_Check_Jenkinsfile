@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+    triggers {
+        // Assume pull request webhooks setup
+    }
+    environment {
+        SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
+    }
+    stages {
+        stage('Stage 1 - Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Stage 2 - Build') {
+            steps {
+                script {
+                    def parallelBuilds = [:]
+                    def svcs = env.SERVICES.split(' ')
+                    for(int i=0; i<svcs.size(); i++){
+                        def svc = svcs[i]
+                        parallelBuilds[svc] = {
+                            dir(svc) {
+                                sh "mvn clean compile" // PR compile without docker package
+                            }
+                        }
+                    }
+                    parallel parallelBuilds
+                }
+            }
+        }
+        stage('Stage 3 - Test') {
+            steps {
+                script {
+                    def parallelTests = [:]
+                    def svcs = env.SERVICES.split(' ')
+                    for(int i=0; i<svcs.size(); i++){
+                        def svc = svcs[i]
+                        parallelTests[svc] = {
+                            dir(svc) {
+                                sh "mvn test"
+                            }
+                        }
+                    }
+                    parallel parallelTests
+                }
+                junit '**/target/surefire-reports/*.xml'
+            }
+        }
+    }
+    post {
+        always {
+            echo "Publish PR comments here."
+        }
+    }
+}

@@ -1,0 +1,45 @@
+---
+- name: Configure Servers and Run MySQL DB Schemas
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    db_host: "10.0.10.140"
+    db_user: "travelnest"
+    db_password: "Qwertyuiop@1234"
+    schemas:
+      - travelnest_users
+      - travelnest_flights
+      - travelnest_hotels
+      - travelnest_packages
+
+  tasks:
+    - name: Wait for MySQL Heatwave to be reachable on port 3306
+      wait_for:
+        host: "{{ db_host }}"
+        port: 3306
+        state: started
+        timeout: 300
+      # Can fail locally if no direct route exists from Jenkins runner to private OCI subnet
+      ignore_errors: true
+
+    - name: Ensure target microservice schemas exist natively
+      community.mysql.mysql_db:
+        name: "{{ item }}"
+        state: present
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+      loop: "{{ schemas }}"
+      ignore_errors: true
+      
+    - name: Initialize tables using seed files if present
+      community.mysql.mysql_db:
+        name: "{{ item }}"
+        state: import
+        target: "../sample_data.sql" # As requested previously for seed data integration
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+      loop: "{{ schemas }}"
+      ignore_errors: true

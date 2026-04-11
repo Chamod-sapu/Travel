@@ -1,0 +1,47 @@
+---
+- hosts: jenkins
+  become: yes
+  tasks:
+    - name: Install Java 17
+      dnf: name=java-17-openjdk state=present
+      tags: [jenkins]
+    
+    - name: Add Jenkins repo
+      get_url: url=https://pkg.jenkins.io/redhat-stable/jenkins.repo dest=/etc/yum.repos.d/jenkins.repo
+      tags: [jenkins]
+    - name: Import Jenkins key
+      rpm_key: state=present key=https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+      tags: [jenkins]
+    - name: Install Jenkins
+      dnf: name=jenkins state=present
+      tags: [jenkins]
+    - name: Start Jenkins
+      service: name=jenkins state=started enabled=yes
+      tags: [jenkins]
+    - name: Wait for Jenkins ready
+      uri: url=http://localhost:8080/login status_code=200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 10
+      tags: [jenkins]
+    # ... more Jenkins cli installs here...
+    
+    - name: Install Docker
+      dnf: name=docker-ce state=present
+      notify: restart docker
+      tags: [docker]
+    - name: Add jenkins to docker group
+      user: name=jenkins groups=docker append=yes
+      tags: [docker]
+    - name: Docker login
+      command: docker login {{ ocir_region }}.ocir.io -u {{ ocir_namespace }}/{{ ocir_username }} -p {{ ocir_token }}
+      tags: [docker]
+    - name: Generate kubeconfig
+      command: oci ce cluster create-kubeconfig --cluster-id {{ oke_cluster_id }} --file /home/jenkins/.kube/config --region {{ oci_region }} --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+      become_user: jenkins
+      tags: [k8s]
+
+  handlers:
+    - name: restart docker
+      service: name=docker state=restarted enabled=yes

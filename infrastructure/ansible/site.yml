@@ -1,0 +1,7 @@
+---
+- import_playbook: setup-jenkins.yml
+- import_playbook: init-database.yml
+- import_playbook: setup-rabbitmq.yml
+- import_playbook: setup-k8s-secrets.yml
+- import_playbook: deploy-k8s.yml
+- import_playbook: health-check.yml

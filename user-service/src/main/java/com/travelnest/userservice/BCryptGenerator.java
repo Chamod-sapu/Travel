@@ -1,3 +1,5 @@
+package com.travelnest.userservice;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 public class BCryptGenerator {

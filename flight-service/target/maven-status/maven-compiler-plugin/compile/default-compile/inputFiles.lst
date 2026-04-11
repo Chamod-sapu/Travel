@@ -11,4 +11,5 @@ D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travel
 D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travelnest\flightservice\entity\FlightBooking.java
 D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travelnest\flightservice\dto\BookingResponse.java
 D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travelnest\flightservice\dto\FlightResponse.java
+D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travelnest\flightservice\dto\FlightRequest.java
 D:\ACEDEMIC\7 SEM\Cloud Computing\Travel\flight-service\src\main\java\com\travelnest\flightservice\repository\FlightRepository.java

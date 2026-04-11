@@ -9,6 +9,7 @@ com\travelnest\flightservice\controller\FlightController.class
 com\travelnest\flightservice\repository\FlightRepository.class
 com\travelnest\flightservice\service\FlightServiceImpl.class
 com\travelnest\flightservice\dto\BookingResponse$BookingResponseBuilder.class
+com\travelnest\flightservice\dto\FlightRequest.class
 com\travelnest\flightservice\entity\Flight.class
 com\travelnest\flightservice\dto\FlightResponse.class
 com\travelnest\flightservice\entity\FlightBooking$FlightBookingBuilder.class
@@ -16,4 +17,5 @@ com\travelnest\flightservice\dto\BookFlightRequest$BookFlightRequestBuilder.clas
 com\travelnest\flightservice\entity\Flight$FlightBuilder.class
 com\travelnest\flightservice\exception\GlobalExceptionHandler.class
 com\travelnest\flightservice\dto\BookFlightRequest.class
+com\travelnest\flightservice\dto\FlightRequest$FlightRequestBuilder.class
 com\travelnest\flightservice\entity\BookingStatus.class

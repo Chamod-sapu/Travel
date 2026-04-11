@@ -1,0 +1,48 @@
+---
+- name: Deploy TravelNest Microservices to OKE
+  hosts: localhost
+  gather_facts: false
+  
+  # Note: Requires collection: kubernetes.core
+  # ansible-galaxy collection install kubernetes.core
+  # pip install kubernetes
+  
+  vars:
+    manifests_dir: "../kubernetes"
+    namespace: "travelnest"
+
+  tasks:
+    - name: Create travelnest namespace
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ manifests_dir }}/namespace.yaml"
+        
+    - name: Apply shared config and secrets
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ item }}"
+      loop:
+        - "{{ manifests_dir }}/configmap.yaml"
+        - "{{ manifests_dir }}/db-secret.yaml"
+        - "{{ manifests_dir }}/ingress.yaml"
+
+    - name: Apply specific service manifests
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ manifests_dir }}/{{ item }}.yaml"
+      loop:
+        - service-registry # Should run first
+        - api-gateway
+        - user-service
+        - flight-service
+        - hotel-service
+        - package-service
+        - payment-service
+        - notification-service
+
+    - name: Verify all pods are running
+      command: kubectl get pods -n {{ namespace }}
+      register: pod_status
+      retries: 5
+      delay: 15
+      until: pod_status.stdout.find('CrashLoopBackOff') == -1 and pod_status.stdout.find('Error') == -1

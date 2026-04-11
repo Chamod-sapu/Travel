@@ -63,23 +63,40 @@ public class FlightController {
 
     // Admin Endpoints
     @PostMapping
-    public ResponseEntity<FlightResponse> createFlight(@RequestBody FlightRequest request) {
+    public ResponseEntity<FlightResponse> createFlight(
+            @RequestHeader("X-Role") String role,
+            @RequestBody FlightRequest request) {
+        validateAdmin(role);
         return ResponseEntity.ok(flightService.createFlight(request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FlightResponse> updateFlight(@PathVariable Long id, @RequestBody FlightRequest request) {
+    public ResponseEntity<FlightResponse> updateFlight(
+            @RequestHeader("X-Role") String role,
+            @PathVariable Long id, @RequestBody FlightRequest request) {
+        validateAdmin(role);
         return ResponseEntity.ok(flightService.updateFlight(id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteFlight(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteFlight(
+            @RequestHeader("X-Role") String role,
+            @PathVariable Long id) {
+        validateAdmin(role);
         flightService.deleteFlight(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/bookings/all")
-    public ResponseEntity<List<BookingResponse>> getAllBookings() {
+    public ResponseEntity<List<BookingResponse>> getAllBookings(
+            @RequestHeader("X-Role") String role) {
+        validateAdmin(role);
         return ResponseEntity.ok(flightService.getAllBookings());
+    }
+
+    private void validateAdmin(String role) {
+        if (!"ADMIN".equals(role)) {
+            throw new RuntimeException("Access Denied: Admin role required");
+        }
     }
 }

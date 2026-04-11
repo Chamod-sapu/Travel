@@ -2,6 +2,7 @@ package com.travelnest.packageservice.service;
 
 import com.travelnest.packageservice.dto.BookPackageRequest;
 import com.travelnest.packageservice.dto.BookingResponse;
+import com.travelnest.packageservice.dto.PackageRequest;
 import com.travelnest.packageservice.dto.PackageResponse;
 
 import java.util.List;

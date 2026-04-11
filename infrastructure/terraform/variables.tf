@@ -1,0 +1,17 @@
+variable "tenancy_ocid" { description = "Tenancy OCID" }
+variable "user_ocid" { description = "User OCID" }
+variable "fingerprint" { description = "API Key Fingerprint" }
+variable "private_key_path" { description = "Path to Private Key" }
+variable "region" { description = "Region" }
+variable "compartment_ocid" { description = "Compartment OCID" }
+variable "vcn_cidr" { default = "10.0.0.0/16" }
+variable "public_subnet_cidr" { default = "10.0.1.0/24" }
+variable "private_subnet_cidr" { default = "10.0.2.0/24" }
+variable "mysql_admin_username" { description = "MySQL username" }
+variable "mysql_admin_password" { description = "MySQL password" }
+variable "jenkins_ssh_public_key" { description = "SSH Key for Jenkins" }
+variable "bastion_ssh_public_key" { description = "SSH Key for Bastion" }
+variable "node_pool_size" { default = 2 }
+variable "node_shape" { default = "VM.Standard.E4.Flex" }
+variable "node_ocpus" { default = 2 }
+variable "node_memory_gb" { default = 16 }

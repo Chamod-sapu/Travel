@@ -2,6 +2,7 @@ package com.travelnest.hotelservice.service;
 
 import com.travelnest.hotelservice.dto.BookHotelRequest;
 import com.travelnest.hotelservice.dto.BookingResponse;
+import com.travelnest.hotelservice.dto.HotelRequest;
 import com.travelnest.hotelservice.dto.HotelResponse;
 
 import java.util.List;

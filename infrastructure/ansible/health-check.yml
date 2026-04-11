@@ -1,0 +1,12 @@
+---
+- hosts: jenkins
+  tags: [deploy]
+  tasks:
+    - name: Get API GW IP
+      command: kubectl get svc api-gateway -n {{ k8s_namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      register: gw_ip
+    - name: Health polling
+      uri: url=http://{{ gw_ip.stdout }}/api/{{ item }}/actuator/health
+      retries: 3
+      delay: 30
+      loop: [user-service]

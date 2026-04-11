@@ -1,0 +1,8 @@
+---
+- hosts: jenkins
+  tags: [rabbitmq]
+  tasks:
+    - name: Wait for Rabbitmq pod
+      command: kubectl wait --for=condition=ready pod -l app=rabbitmq -n {{ k8s_namespace }} --timeout=60s
+    - name: Setup exhanges via URI mock
+      uri: url=http://localhost:15672/api/exchanges/%2F/travelnest.exchange

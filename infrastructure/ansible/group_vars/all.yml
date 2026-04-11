@@ -1,0 +1,19 @@
+mysql_host: "{{ mysql_private_ip | default('placeholder') }}"
+mysql_port: 3306
+mysql_user: "{{ mysql_admin_username | default('travelnest') }}"
+mysql_password: "{{ mysql_admin_password | default('placeholder') }}"
+
+rabbitmq_host: "rabbitmq-service"
+rabbitmq_port: 5672
+rabbitmq_user: "guest"
+rabbitmq_password: "placeholder"
+
+ocir_region: "ap-mumbai-1"
+ocir_namespace: "chamod_dev"
+ocir_username: "placeholder"
+ocir_token: "placeholder"
+
+oke_cluster_id: "placeholder"
+oci_region: "ap-mumbai-1"
+
+k8s_namespace: travelnest

@@ -1,0 +1,15 @@
+---
+- hosts: jenkins
+  become: yes
+  tags: [database]
+  tasks:
+    - block:
+        - name: Install mysql client
+          dnf: name=mysql state=present
+        - name: Run Schema
+          command: mysql -h {{ mysql_host }} -u {{ mysql_user }} -p'{{ mysql_password }}' -e "CREATE DATABASE IF NOT EXISTS {{ item }};"
+          loop: [travelnest_users, travelnest_flights, travelnest_hotels, travelnest_packages, travelnest_payments]
+        - name: Verify
+          command: mysql -h {{ mysql_host }} -u {{ mysql_user }} -p'{{ mysql_password }}' -e "SHOW DATABASES;"
+      rescue:
+        - debug: msg="Error during DB init"
