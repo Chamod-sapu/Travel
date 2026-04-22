@@ -96,10 +96,18 @@ pipeline {
                     ]) {
                         retry(3) {
                             if (isUnix()) {
-                                sh 'echo "$TOKEN" | docker login "$OCI_REGISTRY" -u "$NAMESPACE/$USER" --password-stdin'
+                                sh '''
+                                    # Extract tenancy namespace (the part before any slash)
+                                    ACTUAL_NS=$(echo "$NAMESPACE" | cut -d/ -f1)
+                                    echo "$TOKEN" | docker login "$OCI_REGISTRY" -u "$ACTUAL_NS/$USER" --password-stdin
+                                '''
                             } else {
-                                // Robust method for Windows to handle special characters in the Auth Token
-                                bat '@echo | set /p="%TOKEN%" | docker login "%OCI_REGISTRY%" -u "%NAMESPACE%/%USER%" --password-stdin'
+                                // Robust method for Windows to extract namespace and handle special characters in the Auth Token
+                                bat '''
+                                    @echo off
+                                    for /f "tokens=1 delims=/" %%a in ("%NAMESPACE%") do set ACTUAL_NS=%%a
+                                    @echo | set /p="%TOKEN%" | docker login "%OCI_REGISTRY%" -u "%ACTUAL_NS%/%USER%" --password-stdin
+                                '''
                             }
                             
                             def svcs = env.SERVICES.split(' ')
