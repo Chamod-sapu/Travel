@@ -14,21 +14,19 @@ pipeline {
     }
 
     environment {
-        // Services list
-        SERVICES        = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
+        // Non-secret config only — credentials must NOT go here.
+        // Putting credentials() in the top-level environment block causes the
+        // entire pipeline to abort right after "Declarative: Checkout SCM"
+        // if any credential ID is missing, which hides all named stages.
+        SERVICES         = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
         BACKEND_SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service"
-        K8S_NAMESPACE   = "travelnest"
+        K8S_NAMESPACE    = "travelnest"
+        MAVEN_OPTS       = "-Xmx512m -XX:MaxMetaspaceSize=256m"
+    }
 
-        // Limit memory for each Maven build to prevent OOM
-        MAVEN_OPTS      = "-Xmx512m -XX:MaxMetaspaceSize=256m"
-
-        // Credentials
-        OCI_TOKEN       = credentials('OCI_TOKEN')
-        OCI_REGISTRY    = credentials('OCI_REGISTRY')
-        OCI_NAMESPACE_C = credentials('OCI_NAMESPACE')
-        OCI_USERNAME    = credentials('OCI_USERNAME')
-        DB_HOST         = credentials('DB_HOST')
-        DB_PASSWORD     = credentials('DB_PASSWORD')
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
@@ -75,11 +73,16 @@ pipeline {
         stage('Stage 4 - Docker Build') {
             steps {
                 script {
-                    def svcs = env.SERVICES.split(' ')
-                    for (int i = 0; i < svcs.size(); i++) {
-                        def svc = svcs[i]
-                        runCmd "docker build -t ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${svc}"
-                        runCmd "docker tag ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
+                    withCredentials([
+                        string(credentialsId: 'OCI_REGISTRY',   variable: 'OCI_REGISTRY'),
+                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'OCI_NAMESPACE_C')
+                    ]) {
+                        def svcs = env.SERVICES.split(' ')
+                        for (int i = 0; i < svcs.size(); i++) {
+                            def svc = svcs[i]
+                            runCmd "docker build -t ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${svc}"
+                            runCmd "docker tag ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
+                        }
                     }
                 }
             }
@@ -88,33 +91,31 @@ pipeline {
         stage('Stage 5 - Docker Push') {
             steps {
                 script {
-                    // Use withCredentials to handle secrets safely and avoid Groovy interpolation warnings
                     withCredentials([
-                        string(credentialsId: 'OCI_TOKEN', variable: 'TOKEN'),
+                        string(credentialsId: 'OCI_TOKEN',     variable: 'TOKEN'),
+                        string(credentialsId: 'OCI_REGISTRY',  variable: 'OCI_REGISTRY'),
                         string(credentialsId: 'OCI_NAMESPACE', variable: 'NAMESPACE'),
-                        string(credentialsId: 'OCI_USERNAME', variable: 'USER')
+                        string(credentialsId: 'OCI_USERNAME',  variable: 'OCI_USER')
                     ]) {
                         retry(3) {
                             if (isUnix()) {
                                 sh '''
-                                    # Extract tenancy namespace (the part before any slash)
                                     ACTUAL_NS=$(echo "$NAMESPACE" | cut -d/ -f1)
-                                    echo "$TOKEN" | docker login "$OCI_REGISTRY" -u "$ACTUAL_NS/$USER" --password-stdin
+                                    echo "$TOKEN" | docker login "$OCI_REGISTRY" -u "$ACTUAL_NS/$OCI_USER" --password-stdin
                                 '''
                             } else {
-                                // Robust method for Windows to extract namespace and handle special characters in the Auth Token
                                 bat '''
                                     @echo off
                                     for /f "tokens=1 delims=/" %%a in ("%NAMESPACE%") do set ACTUAL_NS=%%a
-                                    @echo | set /p="%TOKEN%" | docker login "%OCI_REGISTRY%" -u "%ACTUAL_NS%/%USER%" --password-stdin
+                                    @echo | set /p="%TOKEN%" | docker login "%OCI_REGISTRY%" -u "%ACTUAL_NS%/%OCI_USER%" --password-stdin
                                 '''
                             }
-                            
+
                             def svcs = env.SERVICES.split(' ')
                             for (int i = 0; i < svcs.size(); i++) {
                                 def svc = svcs[i]
-                                runCmd "docker push ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER}"
-                                runCmd "docker push ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
+                                runCmd "docker push ${OCI_REGISTRY}/${NAMESPACE}/${svc}:${BUILD_NUMBER}"
+                                runCmd "docker push ${OCI_REGISTRY}/${NAMESPACE}/${svc}:latest"
                             }
                         }
                     }
@@ -126,7 +127,7 @@ pipeline {
             steps {
                 script {
                     dir('infrastructure/terraform') {
-                        runCmd 'terraform init -input=false' 
+                        runCmd 'terraform init -input=false'
                         runCmd 'terraform plan -out=tfplan -var-file=terraform.tfvars -input=false'
                         runCmd 'terraform apply -auto-approve tfplan'
                     }
@@ -138,13 +139,18 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
-                            sh """
-                                ansible-playbook infrastructure/ansible/site.yml \
-                                    --tags 'database,rabbitmq,k8s' \
-                                    --extra-vars 'mysql_host=${DB_HOST} mysql_password=${DB_PASSWORD}' \
-                                    -i infrastructure/ansible/inventory.ini
-                            """
+                        withCredentials([
+                            string(credentialsId: 'DB_HOST',     variable: 'DB_HOST'),
+                            string(credentialsId: 'DB_PASSWORD', variable: 'DB_PASSWORD')
+                        ]) {
+                            withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
+                                sh """
+                                    ansible-playbook infrastructure/ansible/site.yml \
+                                        --tags 'database,rabbitmq,k8s' \
+                                        --extra-vars 'mysql_host=${DB_HOST} mysql_password=${DB_PASSWORD}' \
+                                        -i infrastructure/ansible/inventory.ini
+                                """
+                            }
                         }
                     } else {
                         echo "Skipping Ansible on Windows agent. Ensure Ansible is run from a Linux controller or WSL."
@@ -156,7 +162,11 @@ pipeline {
         stage('Stage 8 - Deploy to OKE') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG')]) {
+                    withCredentials([
+                        file(credentialsId: 'KUBECONFIG_PATH',  variable: 'KUBECONFIG'),
+                        string(credentialsId: 'OCI_REGISTRY',   variable: 'OCI_REGISTRY'),
+                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'OCI_NAMESPACE_C')
+                    ]) {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
@@ -245,8 +255,10 @@ pipeline {
         cleanup {
             script {
                 try {
-                    runCmd 'docker system prune -f'
-                    runCmd 'docker logout ${OCI_REGISTRY} || true'
+                    withCredentials([string(credentialsId: 'OCI_REGISTRY', variable: 'OCI_REGISTRY')]) {
+                        runCmd 'docker system prune -f'
+                        runCmd "docker logout ${OCI_REGISTRY} || true"
+                    }
                 } catch(e) { echo "Cleanup failed: ${e.message}" }
             }
         }
