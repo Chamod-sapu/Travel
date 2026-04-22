@@ -69,7 +69,6 @@ pipeline {
                 junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
             }
         }
-
         stage('Stage 4 - Docker Build') {
             steps {
                 script {
@@ -80,12 +79,8 @@ pipeline {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
-                            dir(svc) {
-                                def fullImage = "${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER}"
-                                echo "Building image: ${fullImage}"
-                                runCmd "docker build -t ${fullImage} ."
-                                runCmd "docker tag ${fullImage} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
-                            }
+                            runCmd "docker build -t ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${svc}"
+                            runCmd "docker tag ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
                         }
                     }
                 }
