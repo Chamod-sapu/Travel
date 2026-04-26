@@ -100,28 +100,30 @@ pipeline {
                                 '''
                             } else {
                                 powershell '''
-                                    # Print PARTIAL values to bypass Jenkins masking
+                                    $ErrorActionPreference = "Continue"
                                     $reg = $env:REG -replace "^https?://", ""
                                     $ns  = $env:NS.Split("/")[0]
                                     $usr = $env:USER
                                     $tok = $env:TOKEN
 
-                                    Write-Host "=== DOCKER LOGIN DEBUG (partial values to bypass masking) ==="
-                                    Write-Host "REG length     : $($reg.Length)"
-                                    Write-Host "REG first 5    : $($reg.Substring(0, [Math]::Min(5, $reg.Length)))"
-                                    Write-Host "REG last 5     : $($reg.Substring([Math]::Max(0, $reg.Length - 5)))"
-                                    Write-Host "NS  length     : $($ns.Length)"
-                                    Write-Host "NS  first 4    : $($ns.Substring(0, [Math]::Min(4, $ns.Length)))"
-                                    Write-Host "USR length     : $($usr.Length)"
-                                    Write-Host "USR first 5    : $($usr.Substring(0, [Math]::Min(5, $usr.Length)))"
-                                    Write-Host "TOK length     : $($tok.Length)"
-                                    Write-Host "TOK first 3    : $($tok.Substring(0, [Math]::Min(3, $tok.Length)))"
-                                    Write-Host "Full login cmd : docker login $reg -u $ns/$usr --password-stdin"
-                                    Write-Host "============================================================"
+                                    Write-Host "=== DOCKER LOGIN DEBUG ==="
+                                    Write-Host "REG: $reg"
+                                    Write-Host "Login user: $ns/$usr"
+                                    Write-Host "Token length: $($tok.Length)"
+                                    Write-Host "=========================="
 
-                                    # Attempt login
-                                    $tok | docker login $reg -u "$ns/$usr" --password-stdin
-                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                                    # Write token to temp file to avoid special char corruption in pipes
+                                    $tmpFile = [System.IO.Path]::GetTempFileName()
+                                    try {
+                                        [System.IO.File]::WriteAllText($tmpFile, $tok)
+                                        $result = cmd /c "type $tmpFile | docker login $reg -u $ns/$usr --password-stdin 2>&1"
+                                        Write-Host $result
+                                        if ($LASTEXITCODE -ne 0) {
+                                            throw "Docker login failed with exit code $LASTEXITCODE"
+                                        }
+                                    } finally {
+                                        Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+                                    }
                                 '''
                             }
 
