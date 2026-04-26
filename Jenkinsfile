@@ -71,19 +71,18 @@ pipeline {
                 script {
                     // Using usernamePassword binder — works for both
                     // "Secret text" and "Username with password" credential types.
-                    // usernameVariable will be empty for Secret text, passwordVariable = the secret.
+                    // string() binder works with "Secret text" credential type.
+                    // Variable names use unique prefix DOCKER_ to avoid any conflicts.
                     withCredentials([
-                        usernamePassword(credentialsId: 'OCI_REGISTRY',  usernameVariable: 'REG_USR',  passwordVariable: 'OCI_REGISTRY_VAL'),
-                        usernamePassword(credentialsId: 'OCI_NAMESPACE', usernameVariable: 'NS_USR',   passwordVariable: 'OCI_NAMESPACE_VAL')
+                        string(credentialsId: 'OCI_REGISTRY',   variable: 'DOCKER_REG'),
+                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'DOCKER_NS')
                     ]) {
-                        def reg = env.OCI_REGISTRY_VAL?.trim() ?: env.REG_USR?.trim()
-                        def ns  = env.OCI_NAMESPACE_VAL?.trim() ?: env.NS_USR?.trim()
-                        echo "Registry: ${reg}, Namespace: ${ns}"
+                        echo "Building images for registry: ${DOCKER_REG}, namespace: ${DOCKER_NS}"
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
-                            runCmd "docker build -t ${reg}/${ns}/${svc}:${BUILD_NUMBER} ${svc}"
-                            runCmd "docker tag ${reg}/${ns}/${svc}:${BUILD_NUMBER} ${reg}/${ns}/${svc}:latest"
+                            runCmd "docker build -t ${DOCKER_REG}/${DOCKER_NS}/${svc}:${BUILD_NUMBER} ${svc}"
+                            runCmd "docker tag ${DOCKER_REG}/${DOCKER_NS}/${svc}:${BUILD_NUMBER} ${DOCKER_REG}/${DOCKER_NS}/${svc}:latest"
                         }
                     }
                 }
