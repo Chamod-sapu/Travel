@@ -21,7 +21,7 @@ pipeline {
 
         // Base credentials IDs
         OCI_REGISTRY_ID  = 'OCI_REGISTRY'
-        OCI_AUTH_ID      = 'Chamod-Docker-Pass' // Assuming a Username/Password credential exists
+        OCI_AUTH_ID      = 'OCI_DOCKER_AUTH' // Assuming a Username/Password credential exists
         OCI_TOKEN_ID     = 'OCI_TOKEN'
         OCI_NAMESPACE_ID = 'OCI_NAMESPACE'
         OCI_USER_ID      = 'OCI_USERNAME'
