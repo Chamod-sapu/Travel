@@ -96,19 +96,16 @@ pipeline {
                                     echo "$TOKEN" | docker login "$REG" -u "$ACTUAL_NS/$USER" --password-stdin
                                 '''
                             } else {
-                                // Using single quotes to avoid Groovy interpolation and using %VAR% for Batch
-                                bat '''
-                                    @echo off
-                                    set ACTUAL_NS=%NS%
-                                    for /f "tokens=1 delims=/" %%a in ("%NS%") do set ACTUAL_NS=%%a
-                                    docker login %REG% -u %ACTUAL_NS%/%USER% -p %TOKEN%
+                                // Using PowerShell on Windows for better string and variable handling
+                                powershell '''
+                                    $actualNs = $env:NS.Split('/')[0]
+                                    Write-Output $env:TOKEN | docker login $env:REG -u "$actualNs/$env:USER" --password-stdin
                                 '''
                             }
 
                             def svcs = env.SERVICES.split(' ')
                             for (int i = 0; i < svcs.size(); i++) {
                                 def svc = svcs[i]
-                                // Note: NS is used here as a Groovy variable because runCmd handles it
                                 runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
                                 runCmd "docker push ${REG}/${NS}/${svc}:latest"
                             }
