@@ -72,7 +72,7 @@ pipeline {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
-                            runCmd "docker build -t ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${svc}"
+                            runCmd "docker build --provenance=false -t ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${svc}"
                             runCmd "docker tag ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${REG}/${NS}/${svc}:latest"
                         }
                     }
