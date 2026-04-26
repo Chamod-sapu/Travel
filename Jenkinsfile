@@ -67,14 +67,18 @@ pipeline {
             steps {
                 script {
                     withCredentials([
-                        string(credentialsId: 'OCI_REGISTRY',   variable: 'OCI_REGISTRY'),
-                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'OCI_NAMESPACE_C')
+                        string(credentialsId: 'OCI_REGISTRY',   variable: 'REG'),
+                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'NS')
                     ]) {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
-                            runCmd "docker build -t ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${svc}"
-                            runCmd "docker tag ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
+                            def imageTag = "${REG}/${NS}/${svc}:${env.BUILD_NUMBER}"
+                            def latestTag = "${REG}/${NS}/${svc}:latest"
+                            echo "📦 Building Docker image: ${imageTag}"
+                            runCmd "docker build -t ${imageTag} ${svc}"
+                            echo "🏷️ Tagging image as latest: ${latestTag}"
+                            runCmd "docker tag ${imageTag} ${latestTag}"
                         }
                     }
                 }
