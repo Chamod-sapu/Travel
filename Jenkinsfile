@@ -90,22 +90,27 @@ pipeline {
                         string(credentialsId: 'OCI_USERNAME',  variable: 'USER')
                     ]) {
                         retry(3) {
+                            echo "Attempting Docker login to ${REG} with namespace ${NS}..."
                             if (isUnix()) {
                                 sh '''
+                                    # Ensure registry URL does not have http/https prefix for docker login
+                                    CLEAN_REG=$(echo "$REG" | sed -e 's|^https://||' -e 's|^http://||')
                                     ACTUAL_NS=$(echo "$NS" | cut -d/ -f1)
-                                    echo "$TOKEN" | docker login "$REG" -u "$ACTUAL_NS/$USER" --password-stdin
+                                    echo "$TOKEN" | docker login "$CLEAN_REG" -u "$ACTUAL_NS/$USER" --password-stdin
                                 '''
                             } else {
-                                // Using PowerShell on Windows for better string and variable handling
                                 powershell '''
+                                    # Ensure registry URL does not have http/https prefix
+                                    $cleanReg = $env:REG -replace '^https?://', ''
                                     $actualNs = $env:NS.Split('/')[0]
-                                    Write-Output $env:TOKEN | docker login $env:REG -u "$actualNs/$env:USER" --password-stdin
+                                    Write-Output $env:TOKEN | docker login $cleanReg -u "$actualNs/$env:USER" --password-stdin
                                 '''
                             }
 
                             def svcs = env.SERVICES.split(' ')
                             for (int i = 0; i < svcs.size(); i++) {
                                 def svc = svcs[i]
+                                // Use CLEAN_REG if defined, otherwise REG
                                 runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
                                 runCmd "docker push ${REG}/${NS}/${svc}:latest"
                             }
@@ -207,7 +212,12 @@ pipeline {
             script {
                 withCredentials([string(credentialsId: 'OCI_REGISTRY', variable: 'REG')]) {
                     try { runCmd 'docker system prune -f' } catch(e) {}
-                    try { runCmd "docker logout ${REG} || true" } catch(e) {}
+                    // Ensure registry URL does not have http/https prefix for logout
+                    if (isUnix()) {
+                        sh 'CLEAN_REG=$(echo "$REG" | sed -e "s|^https://||" -e "s|^http://||"); docker logout "$CLEAN_REG" || true'
+                    } else {
+                        powershell '$cleanReg = $env:REG -replace "^https?://", ""; docker logout $cleanReg'
+                    }
                 }
             }
         }
