@@ -14,17 +14,21 @@ pipeline {
     }
 
     environment {
-        // NON-SECRET config only — no credentials() here.
-        // credentials() in environment aborts the ENTIRE pipeline before
-        // any stage runs if a credential ID is wrong/missing.
-        SERVICES         = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
+        // Services list
+        SERVICES        = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
         BACKEND_SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service"
-        K8S_NAMESPACE    = "travelnest"
-        MAVEN_OPTS       = "-Xmx512m -XX:MaxMetaspaceSize=256m"
-    }
+        K8S_NAMESPACE   = "travelnest"
 
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // Limit memory for each Maven build to prevent OOM
+        MAVEN_OPTS      = "-Xmx512m -XX:MaxMetaspaceSize=256m"
+
+        // Credentials
+        OCI_TOKEN       = credentials('OCI_TOKEN')
+        OCI_REGISTRY    = credentials('OCI_REGISTRY')
+        OCI_NAMESPACE_C = credentials('OCI_NAMESPACE')
+        OCI_USERNAME    = credentials('OCI_USERNAME')
+        DB_HOST         = credentials('DB_HOST')
+        DB_PASSWORD     = credentials('DB_PASSWORD')
     }
 
     stages {
@@ -35,6 +39,7 @@ pipeline {
             }
         }
 
+        // Sequential to prevent memory exhaustion
         stage('Stage 2 - Build') {
             steps {
                 script {
@@ -50,6 +55,7 @@ pipeline {
             }
         }
 
+        // Sequential to prevent memory exhaustion
         stage('Stage 3 - Test') {
             steps {
                 script {
@@ -69,21 +75,11 @@ pipeline {
         stage('Stage 4 - Docker Build') {
             steps {
                 script {
-                    // Using usernamePassword binder — works for both
-                    // "Secret text" and "Username with password" credential types.
-                    // string() binder works with "Secret text" credential type.
-                    // Variable names use unique prefix DOCKER_ to avoid any conflicts.
-                    withCredentials([
-                        string(credentialsId: 'OCI_REGISTRY',   variable: 'DOCKER_REG'),
-                        string(credentialsId: 'OCI_NAMESPACE',  variable: 'DOCKER_NS')
-                    ]) {
-                        echo "Building images for registry: ${DOCKER_REG}, namespace: ${DOCKER_NS}"
-                        def svcs = env.SERVICES.split(' ')
-                        for (int i = 0; i < svcs.size(); i++) {
-                            def svc = svcs[i]
-                            runCmd "docker build -t ${DOCKER_REG}/${DOCKER_NS}/${svc}:${BUILD_NUMBER} ${svc}"
-                            runCmd "docker tag ${DOCKER_REG}/${DOCKER_NS}/${svc}:${BUILD_NUMBER} ${DOCKER_REG}/${DOCKER_NS}/${svc}:latest"
-                        }
+                    def svcs = env.SERVICES.split(' ')
+                    for (int i = 0; i < svcs.size(); i++) {
+                        def svc = svcs[i]
+                        runCmd "docker build -t ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${svc}"
+                        runCmd "docker tag ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER} ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
                     }
                 }
             }
@@ -92,29 +88,33 @@ pipeline {
         stage('Stage 5 - Docker Push') {
             steps {
                 script {
+                    // Use withCredentials to handle secrets safely and avoid Groovy interpolation warnings
                     withCredentials([
-                        usernamePassword(credentialsId: 'OCI_REGISTRY',  usernameVariable: 'REG_USR',  passwordVariable: 'OCI_REGISTRY_VAL'),
-                        usernamePassword(credentialsId: 'OCI_NAMESPACE', usernameVariable: 'NS_USR',   passwordVariable: 'OCI_NAMESPACE_VAL'),
-                        usernamePassword(credentialsId: 'OCI_USERNAME',  usernameVariable: 'OCI_USR',  passwordVariable: 'OCI_UNAME_VAL'),
-                        string(credentialsId: 'OCI_TOKEN', variable: 'TOKEN')
+                        string(credentialsId: 'OCI_TOKEN', variable: 'TOKEN'),
+                        string(credentialsId: 'OCI_NAMESPACE', variable: 'NAMESPACE'),
+                        string(credentialsId: 'OCI_USERNAME', variable: 'USER')
                     ]) {
-                        def reg  = env.OCI_REGISTRY_VAL?.trim()  ?: env.REG_USR?.trim()
-                        def ns   = env.OCI_NAMESPACE_VAL?.trim() ?: env.NS_USR?.trim()
-                        def user = env.OCI_UNAME_VAL?.trim()     ?: env.OCI_USR?.trim()
-                        def actualNs = ns.split('/')[0]
-
                         retry(3) {
                             if (isUnix()) {
-                                sh "echo '${TOKEN}' | docker login '${reg}' -u '${actualNs}/${user}' --password-stdin"
+                                sh '''
+                                    # Extract tenancy namespace (the part before any slash)
+                                    ACTUAL_NS=$(echo "$NAMESPACE" | cut -d/ -f1)
+                                    echo "$TOKEN" | docker login "$OCI_REGISTRY" -u "$ACTUAL_NS/$USER" --password-stdin
+                                '''
                             } else {
-                                bat "@echo | set /p=\"${TOKEN}\" | docker login \"${reg}\" -u \"${actualNs}/${user}\" --password-stdin"
+                                // Robust method for Windows to extract namespace and handle special characters in the Auth Token
+                                bat '''
+                                    @echo off
+                                    for /f "tokens=1 delims=/" %%a in ("%NAMESPACE%") do set ACTUAL_NS=%%a
+                                    @echo | set /p="%TOKEN%" | docker login "%OCI_REGISTRY%" -u "%ACTUAL_NS%/%USER%" --password-stdin
+                                '''
                             }
 
                             def svcs = env.SERVICES.split(' ')
                             for (int i = 0; i < svcs.size(); i++) {
                                 def svc = svcs[i]
-                                runCmd "docker push ${reg}/${ns}/${svc}:${BUILD_NUMBER}"
-                                runCmd "docker push ${reg}/${ns}/${svc}:latest"
+                                runCmd "docker push ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER}"
+                                runCmd "docker push ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:latest"
                             }
                         }
                     }
@@ -138,18 +138,13 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        withCredentials([
-                            string(credentialsId: 'DB_HOST',     variable: 'DB_HOST'),
-                            string(credentialsId: 'DB_PASSWORD', variable: 'DB_PASSWORD')
-                        ]) {
-                            withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
-                                sh """
-                                    ansible-playbook infrastructure/ansible/site.yml \
-                                        --tags 'database,rabbitmq,k8s' \
-                                        --extra-vars 'mysql_host=${DB_HOST} mysql_password=${DB_PASSWORD}' \
-                                        -i infrastructure/ansible/inventory.ini
-                                """
-                            }
+                        withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
+                            sh """
+                                ansible-playbook infrastructure/ansible/site.yml \
+                                    --tags 'database,rabbitmq,k8s' \
+                                    --extra-vars 'mysql_host=${DB_HOST} mysql_password=${DB_PASSWORD}' \
+                                    -i infrastructure/ansible/inventory.ini
+                            """
                         }
                     } else {
                         echo "Skipping Ansible on Windows agent. Ensure Ansible is run from a Linux controller or WSL."
@@ -161,20 +156,14 @@ pipeline {
         stage('Stage 8 - Deploy to OKE') {
             steps {
                 script {
-                    withCredentials([
-                        file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG'),
-                        usernamePassword(credentialsId: 'OCI_REGISTRY',  usernameVariable: 'REG_USR',  passwordVariable: 'OCI_REGISTRY_VAL'),
-                        usernamePassword(credentialsId: 'OCI_NAMESPACE', usernameVariable: 'NS_USR',   passwordVariable: 'OCI_NAMESPACE_VAL')
-                    ]) {
-                        def reg = env.OCI_REGISTRY_VAL?.trim()  ?: env.REG_USR?.trim()
-                        def ns  = env.OCI_NAMESPACE_VAL?.trim() ?: env.NS_USR?.trim()
+                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG')]) {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
                             if (isUnix()) {
-                                sh "sed -i 's|image: .*|image: ${reg}/${ns}/${svc}:${BUILD_NUMBER}|g' infrastructure/k8s/${svc}.yaml"
+                                sh "sed -i 's|image: .*|image: ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER}|g' infrastructure/k8s/${svc}.yaml"
                             } else {
-                                powershell "(Get-Content infrastructure/k8s/${svc}.yaml) -replace 'image: .*', 'image: ${reg}/${ns}/${svc}:${BUILD_NUMBER}' | Set-Content infrastructure/k8s/${svc}.yaml"
+                                powershell "(Get-Content infrastructure/k8s/${svc}.yaml) -replace 'image: .*', 'image: ${OCI_REGISTRY}/${OCI_NAMESPACE_C}/${svc}:${BUILD_NUMBER}' | Set-Content infrastructure/k8s/${svc}.yaml"
                             }
                         }
 
@@ -237,14 +226,8 @@ pipeline {
 
     post {
         always {
-            script {
-                try {
-                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                } catch(e) { echo "Archive failed: ${e.message}" }
-                try {
-                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                } catch(e) { echo "JUnit publish failed: ${e.message}" }
-            }
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
         }
         failure {
             script {
@@ -256,14 +239,15 @@ pipeline {
                             runCmd "kubectl rollout undo deployment/${svc} -n ${K8S_NAMESPACE} || true"
                         }
                     }
-                } catch(e) { echo "Rollback failed: ${e.message}" }
+                } catch(e) { echo "Cleanup/Rollback failed: ${e.message}" }
             }
         }
         cleanup {
             script {
                 try {
                     runCmd 'docker system prune -f'
-                } catch(e) { echo "Docker prune failed: ${e.message}" }
+                    runCmd "docker logout ${OCI_REGISTRY} || true"
+                } catch(e) { echo "Cleanup failed: ${e.message}" }
             }
         }
     }
