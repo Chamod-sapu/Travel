@@ -18,13 +18,6 @@ pipeline {
         BACKEND_SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service"
         K8S_NAMESPACE    = "travelnest"
         MAVEN_OPTS       = "-Xmx512m -XX:MaxMetaspaceSize=256m"
-
-        // Base credentials IDs
-        OCI_REGISTRY_ID  = 'OCI_REGISTRY'
-        OCI_AUTH_ID      = 'OCI_DOCKER_AUTH' // Assuming a Username/Password credential exists
-        OCI_TOKEN_ID     = 'OCI_TOKEN'
-        OCI_NAMESPACE_ID = 'OCI_NAMESPACE'
-        OCI_USER_ID      = 'OCI_USERNAME'
     }
 
     options {
@@ -98,24 +91,24 @@ pipeline {
                     ]) {
                         retry(3) {
                             if (isUnix()) {
-                                sh """
-                                    # Extract tenancy namespace (handle cases like namespace/repo)
-                                    ACTUAL_NS=\$(echo "${NS}" | cut -d/ -f1)
-                                    echo "${TOKEN}" | docker login "${REG}" -u "\${ACTUAL_NS}/${USER}" --password-stdin
-                                """
+                                sh '''
+                                    ACTUAL_NS=$(echo "$NS" | cut -d/ -f1)
+                                    echo "$TOKEN" | docker login "$REG" -u "$ACTUAL_NS/$USER" --password-stdin
+                                '''
                             } else {
-                                // On Windows, piping the token can be tricky. Using -p is more reliable in Jenkins agents.
-                                // We extract ACTUAL_NS using powershell or simple batch logic.
-                                bat """
+                                // Using single quotes to avoid Groovy interpolation and using %VAR% for Batch
+                                bat '''
                                     @echo off
-                                    for /f "tokens=1 delims=/" %%a in ("${NS}") do set ACTUAL_NS=%%a
-                                    docker login "${REG}" -u "%ACTUAL_NS%/${USER}" -p "${TOKEN}"
-                                """
+                                    set ACTUAL_NS=%NS%
+                                    for /f "tokens=1 delims=/" %%a in ("%NS%") do set ACTUAL_NS=%%a
+                                    docker login %REG% -u %ACTUAL_NS%/%USER% -p %TOKEN%
+                                '''
                             }
 
                             def svcs = env.SERVICES.split(' ')
                             for (int i = 0; i < svcs.size(); i++) {
                                 def svc = svcs[i]
+                                // Note: NS is used here as a Groovy variable because runCmd handles it
                                 runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
                                 runCmd "docker push ${REG}/${NS}/${svc}:latest"
                             }
