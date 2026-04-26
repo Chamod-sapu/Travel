@@ -100,11 +100,24 @@ pipeline {
                                 '''
                             } else {
                                 powershell '''
-                                    # Ensure registry URL does not have http/https prefix
-                                    $cleanReg = $env:REG -replace '^https?://', ''
-                                    $actualNs = $env:NS.Split('/')[0]
-                                    # Using -p directly avoids Windows Write-Output newline issues which can corrupt the token
-                                    docker login $cleanReg -u "$actualNs/$env:USER" -p $env:TOKEN
+                                    # Diagnostic output to verify credential values
+                                    $cleanReg = $env:REG -replace "^https?://", ""
+                                    $actualNs = $env:NS.Split("/")[0]
+                                    $loginUser = "$actualNs/$($env:USER)"
+                                    $tokenLen = if ($env:TOKEN) { $env:TOKEN.Length } else { 0 }
+
+                                    Write-Host "=== DOCKER LOGIN DEBUG ==="
+                                    Write-Host "Registry host : $cleanReg"
+                                    Write-Host "Raw namespace  : $($env:NS)"
+                                    Write-Host "Extracted NS   : $actualNs"
+                                    Write-Host "Raw username   : $($env:USER)"
+                                    Write-Host "Full login user: $loginUser"
+                                    Write-Host "Token length   : $tokenLen"
+                                    Write-Host "=========================="
+
+                                    # Attempt login
+                                    $env:TOKEN | docker login $cleanReg -u $loginUser --password-stdin
+                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                 '''
                             }
 
