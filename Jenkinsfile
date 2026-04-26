@@ -144,7 +144,8 @@ pipeline {
         stage('Stage 8 - Deploy to OKE') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBECONFIG')]) {
+                    withCredentials([file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBE')]) {
+                        env.KUBECONFIG = KUBE
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
