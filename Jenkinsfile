@@ -90,7 +90,7 @@ pipeline {
                         string(credentialsId: 'OCI_USERNAME',  variable: 'USER')
                     ]) {
                         retry(3) {
-                            echo "Attempting Docker login to ${REG} with namespace ${NS}..."
+                            echo "Attempting Docker login to ${env.REG} with namespace ${env.NS}..."
                             if (isUnix()) {
                                 sh '''
                                     # Ensure registry URL does not have http/https prefix for docker login
@@ -103,7 +103,8 @@ pipeline {
                                     # Ensure registry URL does not have http/https prefix
                                     $cleanReg = $env:REG -replace '^https?://', ''
                                     $actualNs = $env:NS.Split('/')[0]
-                                    Write-Output $env:TOKEN | docker login $cleanReg -u "$actualNs/$env:USER" --password-stdin
+                                    # Using -p directly avoids Windows Write-Output newline issues which can corrupt the token
+                                    docker login $cleanReg -u "$actualNs/$env:USER" -p $env:TOKEN
                                 '''
                             }
 
