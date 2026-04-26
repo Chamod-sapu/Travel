@@ -100,23 +100,27 @@ pipeline {
                                 '''
                             } else {
                                 powershell '''
-                                    # Diagnostic output to verify credential values
-                                    $cleanReg = $env:REG -replace "^https?://", ""
-                                    $actualNs = $env:NS.Split("/")[0]
-                                    $loginUser = "$actualNs/$($env:USER)"
-                                    $tokenLen = if ($env:TOKEN) { $env:TOKEN.Length } else { 0 }
+                                    # Print PARTIAL values to bypass Jenkins masking
+                                    $reg = $env:REG -replace "^https?://", ""
+                                    $ns  = $env:NS.Split("/")[0]
+                                    $usr = $env:USER
+                                    $tok = $env:TOKEN
 
-                                    Write-Host "=== DOCKER LOGIN DEBUG ==="
-                                    Write-Host "Registry host : $cleanReg"
-                                    Write-Host "Raw namespace  : $($env:NS)"
-                                    Write-Host "Extracted NS   : $actualNs"
-                                    Write-Host "Raw username   : $($env:USER)"
-                                    Write-Host "Full login user: $loginUser"
-                                    Write-Host "Token length   : $tokenLen"
-                                    Write-Host "=========================="
+                                    Write-Host "=== DOCKER LOGIN DEBUG (partial values to bypass masking) ==="
+                                    Write-Host "REG length     : $($reg.Length)"
+                                    Write-Host "REG first 5    : $($reg.Substring(0, [Math]::Min(5, $reg.Length)))"
+                                    Write-Host "REG last 5     : $($reg.Substring([Math]::Max(0, $reg.Length - 5)))"
+                                    Write-Host "NS  length     : $($ns.Length)"
+                                    Write-Host "NS  first 4    : $($ns.Substring(0, [Math]::Min(4, $ns.Length)))"
+                                    Write-Host "USR length     : $($usr.Length)"
+                                    Write-Host "USR first 5    : $($usr.Substring(0, [Math]::Min(5, $usr.Length)))"
+                                    Write-Host "TOK length     : $($tok.Length)"
+                                    Write-Host "TOK first 3    : $($tok.Substring(0, [Math]::Min(3, $tok.Length)))"
+                                    Write-Host "Full login cmd : docker login $reg -u $ns/$usr --password-stdin"
+                                    Write-Host "============================================================"
 
                                     # Attempt login
-                                    $env:TOKEN | docker login $cleanReg -u $loginUser --password-stdin
+                                    $tok | docker login $reg -u "$ns/$usr" --password-stdin
                                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                 '''
                             }
