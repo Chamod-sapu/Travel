@@ -16,7 +16,7 @@ data "oci_core_images" "oracle_linux_8_arm" {
 resource "oci_core_instance" "jenkins_server" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_ocid
-  shape               = "VM.Standard.E4.Flex"
+  shape               = "VM.Standard3.Flex"
   shape_config {
     memory_in_gbs = 16
     ocpus         = 2

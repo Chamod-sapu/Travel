@@ -15,7 +15,7 @@ resource "oci_containerengine_node_pool" "travelnest_node_pool" {
   compartment_id     = var.compartment_ocid
   kubernetes_version = "v1.31.1"
   name               = "travelnest-nodes"
-  node_shape         = "VM.Standard.E4.Flex"
+  node_shape         = "VM.Standard3.Flex"
   node_source_details {
     image_id    = data.oci_core_images.oracle_linux_8_x86.images[0].id
     source_type = "IMAGE"
