@@ -40,7 +40,13 @@ pipeline {
                         echo "Building ${svc}..."
                         dir(svc) {
                             if (svc == 'frontend') {
-                                echo "Skipping Maven build for frontend"
+                                if (isUnix()) {
+                                    sh "npm install"
+                                    sh "npm run build"
+                                } else {
+                                    bat "npm install"
+                                    bat "npm run build"
+                                }
                             } else {
                                 runCmd "mvn clean package -DskipTests"
                             }

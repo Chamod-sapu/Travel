@@ -1,18 +1,12 @@
-FROM node:20-alpine
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built files
+COPY dist /usr/share/nginx/html
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy a custom nginx configuration to handle React/Vite routing if needed
+# (Optional, but often needed for SPAs)
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Install dependencies
-RUN npm install
+EXPOSE 80
 
-# Copy source files
-COPY . .
-
-# Expose Vite's default dev server port
-EXPOSE 5173
-
-# Start Vite dev server and expose to 0.0.0.0 so Docker can map the port
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["nginx", "-g", "daemon off;"]
