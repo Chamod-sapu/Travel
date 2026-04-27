@@ -200,7 +200,6 @@ pipeline {
             steps {
                 script {
                     withCredentials([
-                        file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBE'),
                         string(credentialsId: 'OCI_REGISTRY',  variable: 'REG'),
                         string(credentialsId: 'OCI_NAMESPACE', variable: 'NS'),
                         string(credentialsId: 'OCI_TENANCY_OCID', variable: 'TENANCY'),
@@ -209,20 +208,18 @@ pipeline {
                         string(credentialsId: 'OCI_REGION', variable: 'REGION'),
                         file(credentialsId: 'OCI_PRIVATE_KEY', variable: 'OCI_KEY_FILE')
                     ]) {
-                        env.KUBECONFIG = KUBE
-                        
-                        // Get Cluster ID from Terraform or env
                         def clusterId = "ocid1.cluster.oc1.ap-mumbai-1.aaaaaaaa6wpppmc4hw23oyj27heys2bwl5a6avc22qslngi7oc3ailkqyrra"
                         
-                        // Generate token using Python shim
-                        def token = ""
+                        // Generate a fresh kubeconfig via the OCI Python SDK
+                        def kubeconfigPath = ""
                         withEnv([
                             "TENANCY=${TENANCY}", "USER_OCID=${USER_OCID}", 
                             "FINGERPRINT=${FINGERPRINT}", "OCI_KEY_FILE=${OCI_KEY_FILE}",
                             "REGION=${REGION}", "CLUSTER_ID=${clusterId}"
                         ]) {
-                            token = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
+                            kubeconfigPath = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
                         }
+                        env.KUBECONFIG = kubeconfigPath
 
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
@@ -234,8 +231,7 @@ pipeline {
                             }
                         }
                         
-                        // Apply with the generated token, bypassing the need for oci.exe
-                        runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --token=${token} --validate=false"
+                        runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --validate=false"
                     }
                 }
             }
@@ -245,30 +241,29 @@ pipeline {
             steps {
                 script {
                     withCredentials([
-                        file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBE'),
                         string(credentialsId: 'OCI_TENANCY_OCID', variable: 'TENANCY'),
                         string(credentialsId: 'OCI_USER_OCID', variable: 'USER_OCID'),
                         string(credentialsId: 'OCI_FINGERPRINT', variable: 'FINGERPRINT'),
                         string(credentialsId: 'OCI_REGION', variable: 'REGION'),
                         file(credentialsId: 'OCI_PRIVATE_KEY', variable: 'OCI_KEY_FILE')
                     ]) {
-                        env.KUBECONFIG = KUBE
                         def clusterId = "ocid1.cluster.oc1.ap-mumbai-1.aaaaaaaa6wpppmc4hw23oyj27heys2bwl5a6avc22qslngi7oc3ailkqyrra"
                         
-                        def token = ""
+                        def kubeconfigPath = ""
                         withEnv([
                             "TENANCY=${TENANCY}", "USER_OCID=${USER_OCID}", 
                             "FINGERPRINT=${FINGERPRINT}", "OCI_KEY_FILE=${OCI_KEY_FILE}",
                             "REGION=${REGION}", "CLUSTER_ID=${clusterId}"
                         ]) {
-                            token = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
+                            kubeconfigPath = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
                         }
+                        env.KUBECONFIG = kubeconfigPath
 
                         def gwIp = ""
                         if (isUnix()) {
-                            gwIp = sh(script: "kubectl get svc api-gateway -n ${K8S_NAMESPACE} --token=${token} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'", returnStdout: true).trim()
+                            gwIp = sh(script: "kubectl get svc api-gateway -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'", returnStdout: true).trim()
                         } else {
-                            gwIp = bat(script: "@kubectl get svc api-gateway -n ${K8S_NAMESPACE} --token=${token} -o jsonpath=\"{.status.loadBalancer.ingress[0].ip}\"", returnStdout: true).trim()
+                            gwIp = bat(script: "@kubectl get svc api-gateway -n ${K8S_NAMESPACE} -o jsonpath=\"{.status.loadBalancer.ingress[0].ip}\"", returnStdout: true).trim()
                         }
                         
                         if (gwIp) {
