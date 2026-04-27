@@ -144,8 +144,34 @@ pipeline {
             steps {
                 script {
                     dir('infrastructure/terraform') {
-                        runCmd 'terraform init -input=false'
-                        runCmd 'terraform apply -auto-approve'
+                        withCredentials([
+                            string(credentialsId: 'OCI_TENANCY_OCID',     variable: 'TENANCY'),
+                            string(credentialsId: 'OCI_USER_OCID',        variable: 'USER_OCID'),
+                            string(credentialsId: 'OCI_FINGERPRINT',      variable: 'FINGERPRINT'),
+                            string(credentialsId: 'OCI_REGION',           variable: 'REGION'),
+                            string(credentialsId: 'OCI_COMPARTMENT_OCID', variable: 'COMPARTMENT'),
+                            string(credentialsId: 'MYSQL_ADMIN_USER',      variable: 'MYSQL_USER'),
+                            string(credentialsId: 'MYSQL_ADMIN_PASS',      variable: 'MYSQL_PASS'),
+                            string(credentialsId: 'JENKINS_PUB_KEY',       variable: 'JENKINS_KEY'),
+                            string(credentialsId: 'BASTION_PUB_KEY',       variable: 'BASTION_KEY'),
+                            file(credentialsId: 'OCI_PRIVATE_KEY',         variable: 'OCI_KEY_FILE')
+                        ]) {
+                            withEnv([
+                                "TF_VAR_tenancy_ocid=${TENANCY}",
+                                "TF_VAR_user_ocid=${USER_OCID}",
+                                "TF_VAR_fingerprint=${FINGERPRINT}",
+                                "TF_VAR_region=${REGION}",
+                                "TF_VAR_compartment_ocid=${COMPARTMENT}",
+                                "TF_VAR_mysql_admin_username=${MYSQL_USER}",
+                                "TF_VAR_mysql_admin_password=${MYSQL_PASS}",
+                                "TF_VAR_jenkins_ssh_public_key=${JENKINS_KEY}",
+                                "TF_VAR_bastion_ssh_public_key=${BASTION_KEY}",
+                                "TF_VAR_private_key_path=${OCI_KEY_FILE.replace('\\\\', '/')}"
+                            ]) {
+                                runCmd 'terraform init -input=false'
+                                runCmd 'terraform apply -auto-approve'
+                            }
+                        }
                     }
                 }
             }
