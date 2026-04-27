@@ -54,7 +54,7 @@ metadata:
   name: api-gateway
   namespace: travelnest
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: api-gateway
   ports:
