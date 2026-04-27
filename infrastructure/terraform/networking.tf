@@ -84,7 +84,10 @@ resource "oci_core_network_security_group_security_rule" "jenkins_ssh" {
   source                    = "0.0.0.0/0"
   source_type               = "CIDR_BLOCK"
   tcp_options {
-    destination_port_range { min = 22, max = 22 }
+    destination_port_range {
+      min = 22
+      max = 22
+    }
   }
 }
 resource "oci_core_network_security_group_security_rule" "jenkins_web" {
@@ -94,7 +97,10 @@ resource "oci_core_network_security_group_security_rule" "jenkins_web" {
   source                    = "0.0.0.0/0"
   source_type               = "CIDR_BLOCK"
   tcp_options {
-    destination_port_range { min = 8080, max = 8080 }
+    destination_port_range {
+      min = 8080
+      max = 8080
+    }
   }
 }
 resource "oci_core_network_security_group_security_rule" "mysql_access" {
@@ -104,7 +110,10 @@ resource "oci_core_network_security_group_security_rule" "mysql_access" {
   source                    = var.private_subnet_cidr
   source_type               = "CIDR_BLOCK"
   tcp_options {
-    destination_port_range { min = 3306, max = 3306 }
+    destination_port_range {
+      min = 3306
+      max = 3306
+    }
   }
 }
 resource "oci_core_network_security_group_security_rule" "oke_intra" {
@@ -114,6 +123,9 @@ resource "oci_core_network_security_group_security_rule" "oke_intra" {
   source                    = var.vcn_cidr
   source_type               = "CIDR_BLOCK"
   tcp_options {
-    destination_port_range { min = 6443, max = 6443 }
+    destination_port_range {
+      min = 6443
+      max = 6443
+    }
   }
 }
