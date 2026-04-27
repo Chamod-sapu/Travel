@@ -212,12 +212,18 @@ pipeline {
                         env.KUBECONFIG = KUBE
                         // Make sure kubectl finds our oci wrapper
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
+                        
+                        // Suppress OCI CLI permission warnings
+                        env.OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = "True"
 
                         // Create OCI config file so the oci CLI can authenticate
                         def ociDir = "${env.WORKSPACE}\\.oci"
                         bat "if not exist \"${ociDir}\" mkdir \"${ociDir}\""
                         writeFile file: "${ociDir}\\config", text: "[DEFAULT]\nuser=${USER_OCID}\ntenancy=${TENANCY}\nfingerprint=${FINGERPRINT}\nkey_file=${OCI_KEY_FILE}\nregion=${REGION}\n"
                         env.OCI_CLI_CONFIG_FILE = "${ociDir}\\config"
+
+                        // Debug: Check if we can even reach the cluster endpoint
+                        powershell "Test-NetConnection 161.118.171.114 -Port 6443"
 
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
@@ -248,6 +254,7 @@ pipeline {
                     ]) {
                         env.KUBECONFIG = KUBE
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
+                        env.OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = "True"
 
                         // Create OCI config file
                         def ociDir = "${env.WORKSPACE}\\.oci"
