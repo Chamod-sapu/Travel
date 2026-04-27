@@ -55,8 +55,8 @@ resource "oci_core_route_table" "private_rt" {
     network_entity_id = oci_core_nat_gateway.travelnest_nat.id
   }
   route_rules {
-    destination       = data.oci_core_services.all_services.services[0].id
-    destination_type  = "SERVICE_ID"
+    destination       = data.oci_core_services.all_services.services[0].cidr_block
+    destination_type  = "SERVICE_CIDR_BLOCK"
     network_entity_id = oci_core_service_gateway.travelnest_sg.id
   }
 }
