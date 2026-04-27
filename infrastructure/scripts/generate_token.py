@@ -1,7 +1,6 @@
 import sys
 import os
 import json
-import base64
 import tempfile
 
 # Add the shared library path so Jenkins (running as SYSTEM) can find the oci package
@@ -15,10 +14,8 @@ from oci.signer import Signer
 
 def generate_oke_token(config, cluster_id):
     """
-    Replicates exactly what 'oci ce cluster generate-token' does:
-    1. Builds a GET request to the OKE token endpoint
-    2. Signs it with the OCI signer
-    3. Returns the Authorization header value — which IS the token
+    Calls the OKE token endpoint with a signed request and returns the JWT bearer token.
+    This is exactly what 'oci ce cluster generate-token' does internally.
     """
     signer = Signer(
         tenancy=config["tenancy"],
@@ -30,15 +27,21 @@ def generate_oke_token(config, cluster_id):
     endpoint = f"https://containerengine.{config['region']}.oraclecloud.com"
     url = f"{endpoint}/20180419/clusters/{cluster_id}/token"
 
-    # Build and sign a PreparedRequest (this is exactly what the OCI CLI does)
-    req = requests.Request("GET", url)
-    prepared = req.prepare()
+    # Make a real signed GET request to the OKE token endpoint
+    response = requests.get(url, auth=signer)
 
-    # The signer modifies the request in-place, adding Authorization + Date headers
-    signer(prepared)
+    if response.status_code != 200:
+        raise Exception(f"Token endpoint returned HTTP {response.status_code}: {response.text}")
 
-    # The Kubernetes token for OKE is the Authorization header value
-    return prepared.headers.get("Authorization", "")
+    # The response is an ExecCredential JSON:
+    # {"apiVersion": "...", "kind": "ExecCredential", "status": {"token": "eyJ..."}}
+    resp_json = response.json()
+    token = resp_json.get("status", {}).get("token", "")
+
+    if not token:
+        raise Exception(f"No token in response: {json.dumps(resp_json)}")
+
+    return token
 
 
 def main():
@@ -55,26 +58,29 @@ def main():
         print("Error: CLUSTER_ID environment variable not set", file=sys.stderr)
         sys.exit(1)
 
+    # Validate all required env vars are set
+    for key, val in config.items():
+        if not val:
+            print(f"Error: Missing environment variable for '{key}'", file=sys.stderr)
+            sys.exit(1)
+
     try:
-        # 1. Download the base kubeconfig
+        # 1. Get the real JWT bearer token from OKE
+        token = generate_oke_token(config, cluster_id)
+
+        # 2. Download the base kubeconfig structure
         ce_client = oci.container_engine.ContainerEngineClient(config)
         response = ce_client.create_kubeconfig(cluster_id)
         kubeconfig_yaml = yaml.safe_load(response.data.text)
 
-        # 2. Generate the OKE auth token using manual request signing
-        token = generate_oke_token(config, cluster_id)
-        if not token:
-            print("Error: Signer produced an empty Authorization header", file=sys.stderr)
-            sys.exit(1)
-
-        # 3. Remove the 'exec' section and replace with the static token
+        # 3. Remove the 'exec' plugin section and insert our real token
         if "users" in kubeconfig_yaml:
             for user_entry in kubeconfig_yaml["users"]:
                 if "user" in user_entry:
                     user_entry["user"].pop("exec", None)
                     user_entry["user"]["token"] = token
 
-        # 4. Write cleaned kubeconfig to a temp file
+        # 4. Write the self-contained kubeconfig to temp file
         kubeconfig_path = os.path.join(tempfile.gettempdir(), "oke_kubeconfig_final")
         with open(kubeconfig_path, "w") as f:
             yaml.dump(kubeconfig_yaml, f)
