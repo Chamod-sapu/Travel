@@ -221,7 +221,7 @@ pipeline {
                             "FINGERPRINT=${FINGERPRINT}", "OCI_KEY_FILE=${OCI_KEY_FILE}",
                             "REGION=${REGION}", "CLUSTER_ID=${clusterId}"
                         ]) {
-                            token = powershell(script: "python infrastructure/scripts/generate_token.py", returnStdout: true).trim()
+                            token = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
                         }
 
                         def svcs = env.SERVICES.split(' ')
@@ -261,7 +261,7 @@ pipeline {
                             "FINGERPRINT=${FINGERPRINT}", "OCI_KEY_FILE=${OCI_KEY_FILE}",
                             "REGION=${REGION}", "CLUSTER_ID=${clusterId}"
                         ]) {
-                            token = powershell(script: "python infrastructure/scripts/generate_token.py", returnStdout: true).trim()
+                            token = powershell(script: "py infrastructure/scripts/generate_token.py", returnStdout: true).trim()
                         }
 
                         def gwIp = ""
