@@ -104,11 +104,11 @@ resource "oci_core_network_security_group" "lb_nsg" {
 
 # EGRESS Rules - allow all outbound traffic so nodes can register
 resource "oci_core_network_security_group_security_rule" "all_egress" {
-  for_each = toset([
-    oci_core_network_security_group.jenkins_nsg.id,
-    oci_core_network_security_group.oke_nsg.id,
-    oci_core_network_security_group.mysql_nsg.id
-  ])
+  for_each = {
+    jenkins = oci_core_network_security_group.jenkins_nsg.id
+    oke     = oci_core_network_security_group.oke_nsg.id
+    mysql   = oci_core_network_security_group.mysql_nsg.id
+  }
   network_security_group_id = each.value
   direction                 = "EGRESS"
   protocol                  = "all"
