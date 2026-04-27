@@ -212,6 +212,8 @@ pipeline {
                     withCredentials([
                         string(credentialsId: 'OCI_REGISTRY',  variable: 'REG'),
                         string(credentialsId: 'OCI_NAMESPACE', variable: 'NS'),
+                        string(credentialsId: 'OCI_USERNAME',  variable: 'USER'),
+                        string(credentialsId: 'OCI_TOKEN',     variable: 'TOKEN'),
                         string(credentialsId: 'OCI_TENANCY_OCID', variable: 'TENANCY'),
                         string(credentialsId: 'OCI_USER_OCID', variable: 'USER_OCID'),
                         string(credentialsId: 'OCI_FINGERPRINT', variable: 'FINGERPRINT'),
@@ -248,6 +250,17 @@ pipeline {
                         }
                         
                         runCmd "kubectl apply -f infrastructure/k8s/namespace.yaml"
+                        
+                        // Automatically create image pull secret and attach it to default service account
+                        def actualNs = env.NS.split('/')[0]
+                        def cleanReg = env.REG.replaceAll("^https?://", "")
+                        runCmd "kubectl create secret docker-registry ocir-secret --docker-server=${cleanReg} --docker-username=${actualNs}/${USER} --docker-password=${TOKEN} --docker-email=admin@travelnest.com -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                        if (isUnix()) {
+                            runCmd "kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"ocir-secret\"}]}' -n ${K8S_NAMESPACE}"
+                        } else {
+                            runCmd "kubectl patch serviceaccount default -p \\\"{\\\"\\\"imagePullSecrets\\\"\\\": [{\\\"\\\"name\\\"\\\": \\\"\\\"ocir-secret\\\"\\\"}]}\\\" -n ${K8S_NAMESPACE}"
+                        }
+
                         runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --validate=false"
                     }
                 }
