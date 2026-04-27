@@ -27,6 +27,25 @@ resource "oci_core_route_table" "public_rt" {
   }
 }
 
+# Service Gateway for private access to OCI Services
+data "oci_core_services" "all_services" {
+  filter {
+    name   = "name"
+    values = ["All .* Services In Oracle Services Network"]
+    regex  = true
+  }
+}
+
+resource "oci_core_service_gateway" "travelnest_sg" {
+  compartment_id = var.compartment_ocid
+  services {
+    service_id = data.oci_core_services.all_services.services[0].id
+  }
+  vcn_id         = oci_core_vcn.travelnest_vcn.id
+  display_name   = "travelnest-sg"
+}
+
+# Update Route Table to include Service Gateway
 resource "oci_core_route_table" "private_rt" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
@@ -36,8 +55,11 @@ resource "oci_core_route_table" "private_rt" {
     destination_type  = "CIDR_BLOCK"
     network_entity_id = oci_core_nat_gateway.travelnest_nat.id
   }
-}
-
+  route_rules {
+    destination       = data.oci_core_services.all_services.services[0].cidr_block
+    destination_type  = "SERVICE_ID"
+    network_entity_id = oci_core_service_gateway.travelnest_sg.id
+  }
 resource "oci_core_subnet" "public_subnet" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
@@ -76,7 +98,45 @@ resource "oci_core_network_security_group" "lb_nsg" {
   display_name   = "lb-nsg"
 }
 
-# Add Security Group Rules
+
+# EGRESS Rules (Crucial for nodes to check in)
+resource "oci_core_network_security_group_security_rule" "all_egress" {
+  for_each = toset([
+    oci_core_network_security_group.jenkins_nsg.id,
+    oci_core_network_security_group.oke_nsg.id,
+    oci_core_network_security_group.mysql_nsg.id
+  ])
+  network_security_group_id = each.value
+  direction                 = "EGRESS"
+  protocol                  = "all"
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+}
+
+# OKE Node to Control Plane Rules
+resource "oci_core_network_security_group_security_rule" "oke_k8s_api" {
+  network_security_group_id = oci_core_network_security_group.oke_nsg.id
+  direction                 = "INGRESS"
+  protocol                  = "6" # TCP
+  source                    = "0.0.0.0/0"
+  source_type               = "CIDR_BLOCK"
+  tcp_options {
+    destination_port_range {
+      min = 6443
+      max = 6443
+    }
+  }
+}
+
+# Allow all traffic within the VCN for OKE nodes
+resource "oci_core_network_security_group_security_rule" "oke_internal" {
+  network_security_group_id = oci_core_network_security_group.oke_nsg.id
+  direction                 = "INGRESS"
+  protocol                  = "all"
+  source                    = var.vcn_cidr
+  source_type               = "CIDR_BLOCK"
+}
+
 resource "oci_core_network_security_group_security_rule" "jenkins_ssh" {
   network_security_group_id = oci_core_network_security_group.jenkins_nsg.id
   direction                 = "INGRESS"
@@ -113,19 +173,6 @@ resource "oci_core_network_security_group_security_rule" "mysql_access" {
     destination_port_range {
       min = 3306
       max = 3306
-    }
-  }
-}
-resource "oci_core_network_security_group_security_rule" "oke_intra" {
-  network_security_group_id = oci_core_network_security_group.oke_nsg.id
-  direction                 = "INGRESS"
-  protocol                  = "6"
-  source                    = var.vcn_cidr
-  source_type               = "CIDR_BLOCK"
-  tcp_options {
-    destination_port_range {
-      min = 6443
-      max = 6443
     }
   }
 }
