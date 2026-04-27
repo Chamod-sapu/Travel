@@ -237,6 +237,7 @@ pipeline {
                             }
                         }
                         
+                        runCmd "kubectl apply -f infrastructure/k8s/namespace.yaml"
                         runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --validate=false"
                     }
                 }
