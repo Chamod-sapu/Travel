@@ -16,17 +16,6 @@ resource "oci_core_nat_gateway" "travelnest_nat" {
   display_name   = "travelnest-nat"
 }
 
-resource "oci_core_route_table" "public_rt" {
-  compartment_id = var.compartment_ocid
-  vcn_id         = oci_core_vcn.travelnest_vcn.id
-  display_name   = "public-rt"
-  route_rules {
-    destination       = "0.0.0.0/0"
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.travelnest_igw.id
-  }
-}
-
 # Service Gateway for private access to OCI Services
 data "oci_core_services" "all_services" {
   filter {
@@ -41,11 +30,21 @@ resource "oci_core_service_gateway" "travelnest_sg" {
   services {
     service_id = data.oci_core_services.all_services.services[0].id
   }
-  vcn_id         = oci_core_vcn.travelnest_vcn.id
-  display_name   = "travelnest-sg"
+  vcn_id       = oci_core_vcn.travelnest_vcn.id
+  display_name = "travelnest-sg"
 }
 
-# Update Route Table to include Service Gateway
+resource "oci_core_route_table" "public_rt" {
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.travelnest_vcn.id
+  display_name   = "public-rt"
+  route_rules {
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+    network_entity_id = oci_core_internet_gateway.travelnest_igw.id
+  }
+}
+
 resource "oci_core_route_table" "private_rt" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
@@ -60,6 +59,8 @@ resource "oci_core_route_table" "private_rt" {
     destination_type  = "SERVICE_ID"
     network_entity_id = oci_core_service_gateway.travelnest_sg.id
   }
+}
+
 resource "oci_core_subnet" "public_subnet" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
@@ -69,11 +70,11 @@ resource "oci_core_subnet" "public_subnet" {
 }
 
 resource "oci_core_subnet" "private_subnet" {
-  compartment_id = var.compartment_ocid
-  vcn_id         = oci_core_vcn.travelnest_vcn.id
-  cidr_block     = var.private_subnet_cidr
-  route_table_id = oci_core_route_table.private_rt.id
-  display_name   = "private-subnet"
+  compartment_id             = var.compartment_ocid
+  vcn_id                     = oci_core_vcn.travelnest_vcn.id
+  cidr_block                 = var.private_subnet_cidr
+  route_table_id             = oci_core_route_table.private_rt.id
+  display_name               = "private-subnet"
   prohibit_public_ip_on_vnic = true
 }
 
@@ -82,24 +83,26 @@ resource "oci_core_network_security_group" "jenkins_nsg" {
   vcn_id         = oci_core_vcn.travelnest_vcn.id
   display_name   = "jenkins-nsg"
 }
+
 resource "oci_core_network_security_group" "mysql_nsg" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
   display_name   = "mysql-nsg"
 }
+
 resource "oci_core_network_security_group" "oke_nsg" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
   display_name   = "oke-nsg"
 }
+
 resource "oci_core_network_security_group" "lb_nsg" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.travelnest_vcn.id
   display_name   = "lb-nsg"
 }
 
-
-# EGRESS Rules (Crucial for nodes to check in)
+# EGRESS Rules - allow all outbound traffic so nodes can register
 resource "oci_core_network_security_group_security_rule" "all_egress" {
   for_each = toset([
     oci_core_network_security_group.jenkins_nsg.id,
@@ -113,11 +116,11 @@ resource "oci_core_network_security_group_security_rule" "all_egress" {
   destination_type          = "CIDR_BLOCK"
 }
 
-# OKE Node to Control Plane Rules
+# OKE Kubernetes API port
 resource "oci_core_network_security_group_security_rule" "oke_k8s_api" {
   network_security_group_id = oci_core_network_security_group.oke_nsg.id
   direction                 = "INGRESS"
-  protocol                  = "6" # TCP
+  protocol                  = "6"
   source                    = "0.0.0.0/0"
   source_type               = "CIDR_BLOCK"
   tcp_options {
@@ -128,7 +131,7 @@ resource "oci_core_network_security_group_security_rule" "oke_k8s_api" {
   }
 }
 
-# Allow all traffic within the VCN for OKE nodes
+# Allow all intra-VCN traffic for OKE node communication
 resource "oci_core_network_security_group_security_rule" "oke_internal" {
   network_security_group_id = oci_core_network_security_group.oke_nsg.id
   direction                 = "INGRESS"
@@ -137,6 +140,7 @@ resource "oci_core_network_security_group_security_rule" "oke_internal" {
   source_type               = "CIDR_BLOCK"
 }
 
+# Jenkins SSH
 resource "oci_core_network_security_group_security_rule" "jenkins_ssh" {
   network_security_group_id = oci_core_network_security_group.jenkins_nsg.id
   direction                 = "INGRESS"
@@ -150,6 +154,8 @@ resource "oci_core_network_security_group_security_rule" "jenkins_ssh" {
     }
   }
 }
+
+# Jenkins Web UI
 resource "oci_core_network_security_group_security_rule" "jenkins_web" {
   network_security_group_id = oci_core_network_security_group.jenkins_nsg.id
   direction                 = "INGRESS"
@@ -163,6 +169,8 @@ resource "oci_core_network_security_group_security_rule" "jenkins_web" {
     }
   }
 }
+
+# MySQL access from private subnet
 resource "oci_core_network_security_group_security_rule" "mysql_access" {
   network_security_group_id = oci_core_network_security_group.mysql_nsg.id
   direction                 = "INGRESS"
