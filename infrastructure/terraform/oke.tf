@@ -1,6 +1,6 @@
 resource "oci_containerengine_cluster" "travelnest_cluster" {
   compartment_id     = var.compartment_ocid
-  kubernetes_version = "v1.29.1"
+  kubernetes_version = "v1.31.1"
   name               = "travelnest-cluster"
   vcn_id             = oci_core_vcn.travelnest_vcn.id
   endpoint_config {
@@ -13,7 +13,7 @@ resource "oci_containerengine_cluster" "travelnest_cluster" {
 resource "oci_containerengine_node_pool" "travelnest_node_pool" {
   cluster_id         = oci_containerengine_cluster.travelnest_cluster.id
   compartment_id     = var.compartment_ocid
-  kubernetes_version = "v1.29.1"
+  kubernetes_version = "v1.31.1"
   name               = "travelnest-nodes"
   node_shape         = var.node_shape
   node_config_details {

@@ -157,15 +157,15 @@ pipeline {
                             file(credentialsId: 'OCI_PRIVATE_KEY',         variable: 'OCI_KEY_FILE')
                         ]) {
                             withEnv([
-                                "TF_VAR_tenancy_ocid=${TENANCY}",
-                                "TF_VAR_user_ocid=${USER_OCID}",
-                                "TF_VAR_fingerprint=${FINGERPRINT}",
-                                "TF_VAR_region=${REGION}",
-                                "TF_VAR_compartment_ocid=${COMPARTMENT}",
-                                "TF_VAR_mysql_admin_username=${MYSQL_USER}",
-                                "TF_VAR_mysql_admin_password=${MYSQL_PASS}",
-                                "TF_VAR_jenkins_ssh_public_key=${JENKINS_KEY}",
-                                "TF_VAR_bastion_ssh_public_key=${BASTION_KEY}",
+                                "TF_VAR_tenancy_ocid=${TENANCY.trim()}",
+                                "TF_VAR_user_ocid=${USER_OCID.trim()}",
+                                "TF_VAR_fingerprint=${FINGERPRINT.trim()}",
+                                "TF_VAR_region=${REGION.trim()}",
+                                "TF_VAR_compartment_ocid=${COMPARTMENT.trim()}",
+                                "TF_VAR_mysql_admin_username=${MYSQL_USER.trim()}",
+                                "TF_VAR_mysql_admin_password=${MYSQL_PASS.trim()}",
+                                "TF_VAR_jenkins_ssh_public_key=${JENKINS_KEY.trim()}",
+                                "TF_VAR_bastion_ssh_public_key=${BASTION_KEY.trim()}",
                                 "TF_VAR_private_key_path=${OCI_KEY_FILE.replace('\\\\', '/')}"
                             ]) {
                                 runCmd 'terraform init -input=false'
