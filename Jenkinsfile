@@ -200,6 +200,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([
+                        file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBE'),
                         string(credentialsId: 'OCI_REGISTRY',  variable: 'REG'),
                         string(credentialsId: 'OCI_NAMESPACE', variable: 'NS'),
                         string(credentialsId: 'OCI_TENANCY_OCID', variable: 'TENANCY'),
@@ -208,8 +209,7 @@ pipeline {
                         string(credentialsId: 'OCI_REGION', variable: 'REGION'),
                         file(credentialsId: 'OCI_PRIVATE_KEY', variable: 'OCI_KEY_FILE')
                     ]) {
-                        def clusterId = "ocid1.cluster.oc1.ap-mumbai-1.aaaaaaaa6wpppmc4hw23oyj27heys2bwl5a6avc22qslngi7oc3ailkqyrra"
-                        
+                        env.KUBECONFIG = KUBE
                         // Make sure kubectl finds our oci wrapper
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
                         
@@ -222,10 +222,8 @@ pipeline {
                         writeFile file: "${ociDir}\\config", text: "[DEFAULT]\nuser=${USER_OCID}\ntenancy=${TENANCY}\nfingerprint=${FINGERPRINT}\nkey_file=${OCI_KEY_FILE}\nregion=${REGION}\n"
                         env.OCI_CLI_CONFIG_FILE = "${ociDir}\\config"
 
-                        // Dynamically fetch the current kubeconfig directly from OCI
-                        def kubeconfigFile = "${env.WORKSPACE}\\kubeconfig"
-                        bat "oci ce cluster create-kubeconfig --cluster-id ${clusterId} --file ${kubeconfigFile} --region ${REGION} --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT"
-                        env.KUBECONFIG = kubeconfigFile
+                        // Debug: Check if we can even reach the cluster endpoint
+                        powershell "Test-NetConnection 161.118.171.114 -Port 6443"
 
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
@@ -247,14 +245,14 @@ pipeline {
             steps {
                 script {
                     withCredentials([
+                        file(credentialsId: 'KUBECONFIG_PATH', variable: 'KUBE'),
                         string(credentialsId: 'OCI_TENANCY_OCID', variable: 'TENANCY'),
                         string(credentialsId: 'OCI_USER_OCID', variable: 'USER_OCID'),
                         string(credentialsId: 'OCI_FINGERPRINT', variable: 'FINGERPRINT'),
                         string(credentialsId: 'OCI_REGION', variable: 'REGION'),
                         file(credentialsId: 'OCI_PRIVATE_KEY', variable: 'OCI_KEY_FILE')
                     ]) {
-                        def clusterId = "ocid1.cluster.oc1.ap-mumbai-1.aaaaaaaa6wpppmc4hw23oyj27heys2bwl5a6avc22qslngi7oc3ailkqyrra"
-                        
+                        env.KUBECONFIG = KUBE
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
                         env.OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = "True"
 
@@ -263,11 +261,6 @@ pipeline {
                         bat "if not exist \"${ociDir}\" mkdir \"${ociDir}\""
                         writeFile file: "${ociDir}\\config", text: "[DEFAULT]\nuser=${USER_OCID}\ntenancy=${TENANCY}\nfingerprint=${FINGERPRINT}\nkey_file=${OCI_KEY_FILE}\nregion=${REGION}\n"
                         env.OCI_CLI_CONFIG_FILE = "${ociDir}\\config"
-
-                        // Dynamically fetch the current kubeconfig directly from OCI
-                        def kubeconfigFile = "${env.WORKSPACE}\\kubeconfig"
-                        bat "oci ce cluster create-kubeconfig --cluster-id ${clusterId} --file ${kubeconfigFile} --region ${REGION} --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT"
-                        env.KUBECONFIG = kubeconfigFile
 
                         def gwIp = ""
                         if (isUnix()) {
