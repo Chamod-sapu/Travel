@@ -10,8 +10,8 @@ import tempfile
 
 def get_kubeconfig():
     """
-    Downloads the full kubeconfig for the OKE cluster and writes it to a temp file.
-    Prints the path to the temp file so the Jenkinsfile can use it.
+    Downloads the kubeconfig, removes the 'exec' section (which requires oci.exe),
+    and inserts a static token instead.
     """
     config = {
         "user": os.environ.get("USER_OCID"),
@@ -29,20 +29,34 @@ def get_kubeconfig():
     try:
         ce_client = oci.container_engine.ContainerEngineClient(config)
 
-        # Download the full kubeconfig content from OKE
+        # 1. Download the raw kubeconfig content
         response = ce_client.create_kubeconfig(cluster_id)
-        kubeconfig_content = response.data.text
+        kubeconfig_yaml = yaml.safe_load(response.data.text)
 
-        # Write to a temp file that kubectl can consume
-        kubeconfig_path = os.path.join(tempfile.gettempdir(), "oke_kubeconfig")
+        # 2. Generate a security token using the SDK
+        token_response = ce_client.get_cluster_kubeconfig_token(cluster_id)
+        token = token_response.data.token
+
+        # 3. Modify the YAML to use the token instead of the 'oci' command
+        # OCI kubeconfig usually has one user. We find it and replace 'exec' with 'token'.
+        if 'users' in kubeconfig_yaml:
+            for user_entry in kubeconfig_yaml['users']:
+                if 'user' in user_entry:
+                    # Remove the 'exec' block that causes the "oci not found" error
+                    user_entry['user'].pop('exec', None)
+                    # Insert the token we generated
+                    user_entry['user']['token'] = token
+
+        # 4. Write the "cleaned" kubeconfig to a temp file
+        kubeconfig_path = os.path.join(tempfile.gettempdir(), "oke_kubeconfig_clean")
         with open(kubeconfig_path, "w") as f:
-            f.write(kubeconfig_content)
+            yaml.dump(kubeconfig_yaml, f)
 
-        # Print the path so Jenkins can capture it
+        # Print the path for Jenkins to capture
         print(kubeconfig_path)
 
     except Exception as e:
-        print(f"Error generating kubeconfig: {e}", file=sys.stderr)
+        print(f"Error generating clean kubeconfig: {e}", file=sys.stderr)
         sys.exit(1)
 
 
