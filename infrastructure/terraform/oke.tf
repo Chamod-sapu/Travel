@@ -16,6 +16,10 @@ resource "oci_containerengine_node_pool" "travelnest_node_pool" {
   kubernetes_version = "v1.31.1"
   name               = "travelnest-nodes"
   node_shape         = var.node_shape
+  node_source_details {
+    image_id    = data.oci_core_images.oracle_linux_8.images[0].id
+    source_type = "IMAGE"
+  }
   node_config_details {
     placement_configs {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name

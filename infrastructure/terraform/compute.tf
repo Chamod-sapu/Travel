@@ -3,16 +3,17 @@ data "oci_core_images" "oracle_linux_8" {
   compartment_id = var.compartment_ocid
   operating_system = "Oracle Linux"
   operating_system_version = "8"
-  shape = "VM.Standard.E4.Flex"
+  # Filtering by shape ensures we get an image compatible with A1 (ARM)
+  shape = "VM.Standard.A1.Flex"
 }
 
 resource "oci_core_instance" "jenkins_server" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_ocid
-  shape               = "VM.Standard.E4.Flex"
+  shape               = "VM.Standard.A1.Flex"
   shape_config {
-    memory_in_gbs = 16
-    ocpus         = 2
+    memory_in_gbs = 24
+    ocpus         = 4
   }
   source_details {
     source_id   = data.oci_core_images.oracle_linux_8.images[0].id
