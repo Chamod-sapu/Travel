@@ -1,9 +1,15 @@
 data "oci_identity_availability_domains" "ads" { compartment_id = var.compartment_ocid }
-data "oci_core_images" "oracle_linux_8" {
+data "oci_core_images" "oracle_linux_8_x86" {
   compartment_id = var.compartment_ocid
   operating_system = "Oracle Linux"
   operating_system_version = "8"
-  # Filtering by shape ensures we get an image compatible with A1 (ARM)
+  shape = "VM.Standard.E4.Flex"
+}
+
+data "oci_core_images" "oracle_linux_8_arm" {
+  compartment_id = var.compartment_ocid
+  operating_system = "Oracle Linux"
+  operating_system_version = "8"
   shape = "VM.Standard.A1.Flex"
 }
 
@@ -16,8 +22,9 @@ resource "oci_core_instance" "jenkins_server" {
     ocpus         = 4
   }
   source_details {
-    source_id   = data.oci_core_images.oracle_linux_8.images[0].id
+    source_id   = data.oci_core_images.oracle_linux_8_arm.images[0].id
     source_type = "image"
+    boot_volume_size_in_gbs = 50
   }
   create_vnic_details {
     subnet_id = oci_core_subnet.public_subnet.id
@@ -41,8 +48,9 @@ resource "oci_core_instance" "bastion_host" {
   compartment_id      = var.compartment_ocid
   shape               = "VM.Standard.E2.1.Micro" # Always Free
   source_details {
-    source_id   = data.oci_core_images.oracle_linux_8.images[0].id
+    source_id   = data.oci_core_images.oracle_linux_8_x86.images[0].id
     source_type = "image"
+    boot_volume_size_in_gbs = 50
   }
   create_vnic_details {
     subnet_id = oci_core_subnet.public_subnet.id

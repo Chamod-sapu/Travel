@@ -17,8 +17,9 @@ resource "oci_containerengine_node_pool" "travelnest_node_pool" {
   name               = "travelnest-nodes"
   node_shape         = var.node_shape
   node_source_details {
-    image_id    = data.oci_core_images.oracle_linux_8.images[0].id
+    image_id    = data.oci_core_images.oracle_linux_8_x86.images[0].id
     source_type = "IMAGE"
+    boot_volume_size_in_gbs = 50
   }
   node_config_details {
     placement_configs {
