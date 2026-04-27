@@ -22,7 +22,7 @@ resource "oci_vault_secret" "db_password" {
     name         = "db-password"
     content = base64encode(var.mysql_admin_password)
   }
-  secret_name = "db-password"
+  secret_name = "travelnest-db-password"
   vault_id    = oci_kms_vault.travelnest_vault.id
   key_id      = oci_kms_key.master_key.id
 }
