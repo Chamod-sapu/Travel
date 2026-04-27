@@ -14,7 +14,7 @@ pipeline {
     }
 
     environment {
-        SERVICES         = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry"
+        SERVICES         = "user-service flight-service hotel-service package-service payment-service notification-service api-gateway service-registry frontend"
         BACKEND_SERVICES = "user-service flight-service hotel-service package-service payment-service notification-service"
         K8S_NAMESPACE    = "travelnest"
         MAVEN_OPTS       = "-Xmx512m -XX:MaxMetaspaceSize=256m"
@@ -39,7 +39,11 @@ pipeline {
                         def svc = svcs[i]
                         echo "Building ${svc}..."
                         dir(svc) {
-                            runCmd "mvn clean package -DskipTests"
+                            if (svc == 'frontend') {
+                                echo "Skipping Maven build for frontend"
+                            } else {
+                                runCmd "mvn clean package -DskipTests"
+                            }
                         }
                     }
                 }
