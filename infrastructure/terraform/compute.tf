@@ -18,8 +18,8 @@ resource "oci_core_instance" "jenkins_server" {
   compartment_id      = var.compartment_ocid
   shape               = "VM.Standard.A1.Flex"
   shape_config {
-    memory_in_gbs = 24
-    ocpus         = 4
+    memory_in_gbs = 8
+    ocpus         = 2
   }
   source_details {
     source_id   = data.oci_core_images.oracle_linux_8_arm.images[0].id

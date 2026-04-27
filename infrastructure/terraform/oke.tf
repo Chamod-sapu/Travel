@@ -15,9 +15,9 @@ resource "oci_containerengine_node_pool" "travelnest_node_pool" {
   compartment_id     = var.compartment_ocid
   kubernetes_version = "v1.31.1"
   name               = "travelnest-nodes"
-  node_shape         = var.node_shape
+  node_shape         = "VM.Standard.A1.Flex"
   node_source_details {
-    image_id    = data.oci_core_images.oracle_linux_8_x86.images[0].id
+    image_id    = data.oci_core_images.oracle_linux_8_arm.images[0].id
     source_type = "IMAGE"
     boot_volume_size_in_gbs = 50
   }
@@ -29,7 +29,7 @@ resource "oci_containerengine_node_pool" "travelnest_node_pool" {
     size = var.node_pool_size
   }
   node_shape_config {
-    memory_in_gbs = var.node_memory_gb
     ocpus         = var.node_ocpus
+    memory_in_gbs = 16
   }
 }
