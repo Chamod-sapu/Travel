@@ -213,6 +213,12 @@ pipeline {
                         // Make sure kubectl finds our oci wrapper
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
 
+                        // Create OCI config file so the oci CLI can authenticate
+                        def ociDir = "${env.WORKSPACE}\\.oci"
+                        bat "if not exist \"${ociDir}\" mkdir \"${ociDir}\""
+                        writeFile file: "${ociDir}\\config", text: "[DEFAULT]\nuser=${USER_OCID}\ntenancy=${TENANCY}\nfingerprint=${FINGERPRINT}\nkey_file=${OCI_KEY_FILE}\nregion=${REGION}\n"
+                        env.OCI_CLI_CONFIG_FILE = "${ociDir}\\config"
+
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
@@ -242,6 +248,12 @@ pipeline {
                     ]) {
                         env.KUBECONFIG = KUBE
                         env.PATH = "${env.WORKSPACE}\\infrastructure\\scripts;" + env.PATH
+
+                        // Create OCI config file
+                        def ociDir = "${env.WORKSPACE}\\.oci"
+                        bat "if not exist \"${ociDir}\" mkdir \"${ociDir}\""
+                        writeFile file: "${ociDir}\\config", text: "[DEFAULT]\nuser=${USER_OCID}\ntenancy=${TENANCY}\nfingerprint=${FINGERPRINT}\nkey_file=${OCI_KEY_FILE}\nregion=${REGION}\n"
+                        env.OCI_CLI_CONFIG_FILE = "${ociDir}\\config"
 
                         def gwIp = ""
                         if (isUnix()) {
