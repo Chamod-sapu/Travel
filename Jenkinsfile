@@ -252,15 +252,24 @@ pipeline {
                         runCmd "kubectl apply -f infrastructure/k8s/namespace.yaml"
                         
                         // Automatically create image pull secret and attach it to default service account
-                        def actualNs = env.NS.split('/')[0]
-                        def cleanReg = env.REG.replaceAll("^https?://", "")
-                        runCmd "kubectl create secret docker-registry ocir-secret --docker-server=${cleanReg} --docker-username=${actualNs}/${USER} --docker-password=${TOKEN} --docker-email=admin@travelnest.com -n ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
                         if (isUnix()) {
-                            runCmd "kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"ocir-secret\"}]}' -n ${K8S_NAMESPACE}"
+                            sh '''
+                                CLEAN_REG=$(echo "$REG" | sed -e 's|^https://||' -e 's|^http://||')
+                                ACTUAL_NS=$(echo "$NS" | cut -d/ -f1)
+                                kubectl delete secret ocir-secret -n travelnest --ignore-not-found
+                                kubectl create secret docker-registry ocir-secret --docker-server="$CLEAN_REG" --docker-username="$ACTUAL_NS/$USER" --docker-password="$TOKEN" --docker-email=admin@travelnest.com -n travelnest
+                                kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "ocir-secret"}]}' -n travelnest
+                            '''
                         } else {
-                            runCmd "kubectl patch serviceaccount default -p \\\"{\\\"\\\"imagePullSecrets\\\"\\\": [{\\\"\\\"name\\\"\\\": \\\"\\\"ocir-secret\\\"\\\"}]}\\\" -n ${K8S_NAMESPACE}"
+                            powershell '''
+                                $ErrorActionPreference = "Continue"
+                                $actualNs = $env:NS.Split("/")[0]
+                                $cleanReg = $env:REG -replace "^https?://", ""
+                                kubectl delete secret ocir-secret -n travelnest --ignore-not-found
+                                kubectl create secret docker-registry ocir-secret --docker-server=$cleanReg --docker-username="$actualNs/$env:USER" --docker-password="$env:TOKEN" --docker-email=admin@travelnest.com -n travelnest
+                                kubectl patch serviceaccount default -p '{\\"imagePullSecrets\\": [{\\"name\\": \\"ocir-secret\\"}]}' -n travelnest
+                            '''
                         }
-
                         runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --validate=false"
                     }
                 }
