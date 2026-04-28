@@ -42,10 +42,10 @@ pipeline {
                             if (svc == 'frontend') {
                                 if (isUnix()) {
                                     sh "npm install"
-                                    sh "npm run build"
+                                    sh "VITE_API_BASE_URL=/api npm run build"
                                 } else {
                                     bat "npm install"
-                                    bat "npm run build"
+                                    bat "set VITE_API_BASE_URL=/api&& npm run build"
                                 }
                             } else {
                                 runCmd "mvn clean package -DskipTests"
