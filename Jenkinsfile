@@ -42,10 +42,10 @@ pipeline {
                             if (svc == 'frontend') {
                                 if (isUnix()) {
                                     sh "npm install"
-                                    sh "VITE_API_BASE_URL=/api npm run build"
+                                    sh "VITE_API_BASE_URL=/ npm run build"
                                 } else {
                                     bat "npm install"
-                                    bat "set VITE_API_BASE_URL=/api&& npm run build"
+                                    bat "set VITE_API_BASE_URL=/&& npm run build"
                                 }
                             } else {
                                 runCmd "mvn clean package -DskipTests"
@@ -273,7 +273,7 @@ pipeline {
                                 kubectl create secret docker-registry ocir-secret --docker-server="$CLEAN_REG" --docker-username="$ACTUAL_NS/$USER" --docker-password="$TOKEN" --docker-email=admin@travelnest.com -n travelnest
                                 kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "ocir-secret"}]}' -n travelnest
                                 kubectl delete secret db-secret -n travelnest --ignore-not-found
-                                kubectl create secret generic db-secret --from-literal=DB_HOST="$DBHOST" --from-literal=DB_USERNAME="root" --from-literal=DB_PASSWORD="$DBPASS" -n travelnest
+                                kubectl create secret generic db-secret --from-literal=DB_HOST="$DBHOST" --from-literal=DB_USERNAME="Chamod" --from-literal=DB_PASSWORD="$DBPASS" -n travelnest
                             '''
                         } else {
                             powershell '''
@@ -284,7 +284,7 @@ pipeline {
                                 kubectl create secret docker-registry ocir-secret --docker-server=$cleanReg --docker-username="$actualNs/$env:USER" --docker-password="$env:TOKEN" --docker-email=admin@travelnest.com -n travelnest
                                 kubectl patch serviceaccount default -p '{\\"imagePullSecrets\\": [{\\"name\\": \\"ocir-secret\\"}]}' -n travelnest
                                 kubectl delete secret db-secret -n travelnest --ignore-not-found
-                                kubectl create secret generic db-secret --from-literal=DB_HOST="$env:DBHOST" --from-literal=DB_USERNAME="root" --from-literal=DB_PASSWORD="$env:DBPASS" -n travelnest
+                                kubectl create secret generic db-secret --from-literal=DB_HOST="$env:DBHOST" --from-literal=DB_USERNAME="Chamod" --from-literal=DB_PASSWORD="$env:DBPASS" -n travelnest
                             '''
                         }
                         runCmd "kubectl apply -f infrastructure/k8s/ --recursive -n ${K8S_NAMESPACE} --validate=false"
