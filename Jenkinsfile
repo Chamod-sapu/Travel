@@ -82,8 +82,19 @@ pipeline {
                         def svcs = env.SERVICES.split(' ')
                         for (int i = 0; i < svcs.size(); i++) {
                             def svc = svcs[i]
-                            runCmd "docker build --provenance=false -t ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${svc}"
-                            runCmd "docker tag ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${REG}/${NS}/${svc}:latest"
+                            echo "--- Docker Build: ${svc} ---"
+                            retry(2) {
+                                try {
+                                    runCmd "docker build --provenance=false -t ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${svc}"
+                                    runCmd "docker tag ${REG}/${NS}/${svc}:${BUILD_NUMBER} ${REG}/${NS}/${svc}:latest"
+                                } catch (Exception e) {
+                                    echo "Docker build failed for ${svc}, retrying after cleanup..."
+                                    if (!isUnix()) {
+                                        bat "docker system prune -f"
+                                    }
+                                    throw e
+                                }
+                            }
                         }
                     }
                 }
