@@ -21,13 +21,16 @@ public class JwtService {
 
     @PostConstruct
     public void init() throws Exception {
-        String key = publicKeyStr.replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
+        String key = publicKeyStr.replaceAll("-----[A-Z ]+-----", "")
                 .replaceAll("\\s", "");
-        byte[] keyBytes = Base64.getDecoder().decode(key);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        this.publicKey = keyFactory.generatePublic(keySpec);
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(key);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            this.publicKey = keyFactory.generatePublic(keySpec);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to decode Base64 public key. Ensure the Kubernetes jwt-secret is a valid PEM format without extra hyphens.", e);
+        }
     }
 
     public Long extractUserId(String authHeader) {
