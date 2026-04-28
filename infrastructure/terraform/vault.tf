@@ -6,8 +6,8 @@ resource "oci_kms_vault" "travelnest_vault" {
 }
 
 resource "oci_kms_key" "master_key" {
-  compartment_id = var.compartment_ocid
-  display_name   = "travelnest-master-key"
+  compartment_id      = var.compartment_ocid
+  display_name        = "travelnest-master-key"
   management_endpoint = oci_kms_vault.travelnest_vault.management_endpoint
   key_shape {
     algorithm = "AES"
@@ -20,7 +20,7 @@ resource "oci_vault_secret" "db_password" {
   secret_content {
     content_type = "BASE64"
     name         = "db-password"
-    content = base64encode(var.mysql_admin_password)
+    content      = base64encode(var.mysql_admin_password)
   }
   secret_name = "travelnest-db-password"
   vault_id    = oci_kms_vault.travelnest_vault.id

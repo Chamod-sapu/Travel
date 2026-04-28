@@ -1,5 +1,0 @@
-com\travelnest\notificationservice\dto\PaymentEvent.class
-com\travelnest\notificationservice\NotificationServiceApplication.class
-com\travelnest\notificationservice\listener\NotificationListener.class
-com\travelnest\notificationservice\service\EmailService.class
-com\travelnest\notificationservice\config\RabbitMQConfig.class
