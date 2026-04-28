@@ -149,14 +149,11 @@ pipeline {
                             }
 
                             def svcs = env.SERVICES.split(' ')
-                            def pushTasks = [:]
-                            svcs.each { svc ->
-                                pushTasks["Push ${svc}"] = {
-                                    runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
-                                    runCmd "docker push ${REG}/${NS}/${svc}:latest"
-                                }
+                            for (int i = 0; i < svcs.size(); i++) {
+                                def svc = svcs[i]
+                                echo "Pushing ${svc}..."
+                                runCmd "docker push --all-tags ${REG}/${NS}/${svc}"
                             }
-                            parallel pushTasks
                         }
                     }
                 }
