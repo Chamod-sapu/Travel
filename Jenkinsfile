@@ -149,12 +149,14 @@ pipeline {
                             }
 
                             def svcs = env.SERVICES.split(' ')
-                            for (int i = 0; i < svcs.size(); i++) {
-                                def svc = svcs[i]
-                                // Use CLEAN_REG if defined, otherwise REG
-                                runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
-                                runCmd "docker push ${REG}/${NS}/${svc}:latest"
+                            def pushTasks = [:]
+                            svcs.each { svc ->
+                                pushTasks["Push ${svc}"] = {
+                                    runCmd "docker push ${REG}/${NS}/${svc}:${BUILD_NUMBER}"
+                                    runCmd "docker push ${REG}/${NS}/${svc}:latest"
+                                }
                             }
+                            parallel pushTasks
                         }
                     }
                 }
@@ -351,7 +353,7 @@ pipeline {
         cleanup {
             script {
                 withCredentials([string(credentialsId: 'OCI_REGISTRY', variable: 'REG')]) {
-                    try { runCmd 'docker system prune -f' } catch(e) {}
+                    // try { runCmd 'docker system prune -f' } catch(e) {}
                     // Ensure registry URL does not have http/https prefix for logout
                     if (isUnix()) {
                         sh 'CLEAN_REG=$(echo "$REG" | sed -e "s|^https://||" -e "s|^http://||"); docker logout "$CLEAN_REG" || true'
