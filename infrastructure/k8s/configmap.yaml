@@ -4,6 +4,6 @@ metadata:
   name: travelnest-config
   namespace: travelnest
 data:
-  EUREKA_URI: "http://service-registry:8761/eureka/"
+  EUREKA_URI: "http://service-registry.travelnest.svc.cluster.local:8761/eureka/"
   RABBITMQ_HOST: "rabbitmq-service" # Replace with actual if external
   RABBITMQ_PORT: "5672"

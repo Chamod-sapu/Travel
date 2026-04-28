@@ -69,6 +69,22 @@ resource "oci_core_subnet" "public_subnet" {
   display_name   = "public-subnet"
 }
 
+resource "oci_core_security_list" "private_subnet_sl" {
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.travelnest_vcn.id
+  display_name   = "private-subnet-sl"
+
+  egress_security_rules {
+    destination = "0.0.0.0/0"
+    protocol    = "all"
+  }
+
+  ingress_security_rules {
+    protocol = "all"
+    source   = var.vcn_cidr
+  }
+}
+
 resource "oci_core_subnet" "private_subnet" {
   compartment_id             = var.compartment_ocid
   vcn_id                     = oci_core_vcn.travelnest_vcn.id
@@ -76,6 +92,7 @@ resource "oci_core_subnet" "private_subnet" {
   route_table_id             = oci_core_route_table.private_rt.id
   display_name               = "private-subnet"
   prohibit_public_ip_on_vnic = true
+  security_list_ids          = [oci_core_security_list.private_subnet_sl.id]
 }
 
 resource "oci_core_network_security_group" "jenkins_nsg" {
